@@ -30,7 +30,6 @@ func NewLexer(s string, useStringDescriptions bool) *Lexer {
 	}
 	sc.Init(strings.NewReader(s))
 
-
 	l := Lexer{sc: sc, useStringDescriptions: useStringDescriptions}
 	l.sc.Error = l.CatchScannerError
 

@@ -70,6 +70,13 @@ func (r *echoResolver) Echo(args struct{ Value *string }) *string {
 	return args.Value
 }
 
+type iceCreamResolver struct{}
+
+func (r *iceCreamResolver) BuyIceCream(args struct{ Args *struct{ Flavor *string } }) *string {
+	s := "abc "
+	return &s
+}
+
 var starwarsSchema = graphql.MustParseSchema(starwars.Schema, &starwars.Resolver{})
 
 type ResolverError interface {
@@ -1221,6 +1228,21 @@ func TestVariables(t *testing.T) {
 					}
 				}
 			`,
+		},
+		{
+			Schema: graphql.MustParseSchema(`
+schema {
+  query: Query
+}
+
+type Query {
+  buyIceCream(args: QueryInput): String!
+}
+
+input QueryInput {
+  flavor: String!
+}
+`, &iceCreamResolver{}),
 		},
 
 		{
@@ -2997,7 +3019,7 @@ func TestInput(t *testing.T) {
 	})
 }
 
-type inputArgumentsHello struct {}
+type inputArgumentsHello struct{}
 
 type inputArgumentsScalarMismatch1 struct{}
 
