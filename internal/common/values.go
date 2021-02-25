@@ -27,8 +27,8 @@ func (l InputValueList) Get(name string) *InputValue {
 	return nil
 }
 
-func ParseInputValue(l *Lexer) *InputValue {
-	p := &InputValue{}
+func ParseInputValue(l *Lexer) *types.InputValue {
+	p := &types.InputValue{}
 	p.Loc = l.Location()
 	p.Desc = l.DescComment()
 	p.Name = l.ConsumeIdentWithLoc()
@@ -40,22 +40,6 @@ func ParseInputValue(l *Lexer) *InputValue {
 		p.Default = ParseLiteral(l, true)
 	}
 	p.Directives = ParseDirectives(l)
-	return p
-}
-
-func ParseInputValuePrime(l *Lexer) *types.InputValue {
-	p := &types.InputValue{}
-	p.Loc = l.Location()
-	p.Desc = l.DescComment()
-	p.Name = l.ConsumeIdentWithLocPrime()
-	l.ConsumeToken(':')
-	p.TypeLoc = l.Location()
-	p.Type = ParseType(l)
-	if l.Peek() == '=' {
-		l.ConsumeToken('=')
-		p.Default = ParseLiteral(l, true)
-	}
-	p.Directives = ParseDirectivesPrime(l)
 	return p
 }
 
@@ -83,24 +67,11 @@ func (l ArgumentList) MustGet(name string) Literal {
 	return value
 }
 
-func ParseArguments(l *Lexer) ArgumentList {
-	var args ArgumentList
-	l.ConsumeToken('(')
-	for l.Peek() != ')' {
-		name := l.ConsumeIdentWithLoc()
-		l.ConsumeToken(':')
-		value := ParseLiteral(l, false)
-		args = append(args, Argument{Name: name, Value: value})
-	}
-	l.ConsumeToken(')')
-	return args
-}
-
-func ParseArgumentsPrime(l *Lexer) types.ArgumentList {
+func ParseArguments(l *Lexer) types.ArgumentList {
 	var args types.ArgumentList
 	l.ConsumeToken('(')
 	for l.Peek() != ')' {
-		name := l.ConsumeIdentWithLocPrime()
+		name := l.ConsumeIdentWithLoc()
 		l.ConsumeToken(':')
 		value := ParseLiteral(l, false)
 		// TODO this is not a pointer in the old version. Check for references to ArgumentList

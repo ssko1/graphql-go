@@ -20,6 +20,8 @@ type Lexer struct {
 	next                  rune
 	comment               bytes.Buffer
 	useStringDescriptions bool
+
+	file *os.File
 }
 
 type Ident struct {
@@ -61,6 +63,14 @@ func NewLexer(s string, useStringDescriptions bool) *Lexer {
 	l.sc.Error = l.CatchScannerError
 
 	return &l
+}
+
+func (l *Lexer) Close() error {
+	if l.file == nil {
+		return nil
+	}
+
+	return l.file.Close()
 }
 
 func (l *Lexer) CatchSyntaxError(f func()) (errRes *errors.QueryError) {
@@ -145,14 +155,7 @@ func (l *Lexer) ConsumeIdent() string {
 	return name
 }
 
-func (l *Lexer) ConsumeIdentWithLoc() Ident {
-	loc := l.Location()
-	name := l.sc.TokenText()
-	l.ConsumeToken(scanner.Ident)
-	return Ident{name, loc}
-}
-
-func (l *Lexer) ConsumeIdentWithLocPrime() types.Ident {
+func (l *Lexer) ConsumeIdentWithLoc() types.Ident {
 	loc := l.Location()
 	name := l.sc.TokenText()
 	l.ConsumeToken(scanner.Ident)

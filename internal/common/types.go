@@ -30,7 +30,7 @@ func (t *List) String() string    { return "[" + t.OfType.String() + "]" }
 func (t *NonNull) String() string { return t.OfType.String() + "!" }
 func (*TypeName) String() string  { panic("TypeName needs to be resolved to actual type") }
 
-func ParseType(l *Lexer) Type {
+func ParseType(l *Lexer) types.Type {
 	t := parseNullType(l)
 	if l.Peek() == '!' {
 		l.ConsumeToken('!')
@@ -39,7 +39,7 @@ func ParseType(l *Lexer) Type {
 	return t
 }
 
-func parseNullType(l *Lexer) Type {
+func parseNullType(l *Lexer) types.Type {
 	if l.Peek() == '[' {
 		l.ConsumeToken('[')
 		ofType := ParseType(l)
@@ -47,61 +47,12 @@ func parseNullType(l *Lexer) Type {
 		return &List{OfType: ofType}
 	}
 
-	return &TypeName{Ident: l.ConsumeIdentWithLoc()}
+	return &types.TypeName{Ident: l.ConsumeIdentWithLoc()}
 }
 
-func ParseTypePrime(l *Lexer) types.Type {
-	t := parseNullTypePrime(l)
-	if l.Peek() == '!' {
-		l.ConsumeToken('!')
-		return &NonNull{OfType: t}
-	}
-	return t
-}
+type Resolver func(name string) types.Type
 
-func parseNullTypePrime(l *Lexer) types.Type {
-	if l.Peek() == '[' {
-		l.ConsumeToken('[')
-		ofType := ParseTypePrime(l)
-		l.ConsumeToken(']')
-		return &List{OfType: ofType}
-	}
-
-	return &types.TypeName{Ident: l.ConsumeIdentWithLocPrime()}
-}
-
-type Resolver func(name string) Type
-type ResolverPrime func(name string) types.Type
-
-func ResolveTypePrime(t types.Type, resolver ResolverPrime) (types.Type, *errors.QueryError) {
-	switch t := t.(type) {
-	case *List:
-		ofType, err := ResolveTypePrime(t.OfType, resolver)
-		if err != nil {
-			return nil, err
-		}
-		return &List{OfType: ofType}, nil
-	case *NonNull:
-		ofType, err := ResolveTypePrime(t.OfType, resolver)
-		if err != nil {
-			return nil, err
-		}
-		return &NonNull{OfType: ofType}, nil
-	case *TypeName:
-		refT := resolver(t.Name)
-		if refT == nil {
-			err := errors.Errorf("Unknown type %q.", t.Name)
-			err.Rule = "KnownTypeNames"
-			err.Locations = []errors.Location{t.Loc}
-			return nil, err
-		}
-		return refT, nil
-	default:
-		return t, nil
-	}
-}
-
-func ResolveType(t Type, resolver Resolver) (Type, *errors.QueryError) {
+func ResolveType(t types.Type, resolver Resolver) (types.Type, *errors.QueryError) {
 	switch t := t.(type) {
 	case *List:
 		ofType, err := ResolveType(t.OfType, resolver)
