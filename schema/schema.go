@@ -3,6 +3,7 @@ package schema
 import (
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 // Schema represents a GraphQL service's collective type system capabilities.
@@ -137,7 +138,7 @@ type EnumValuesDefinition struct {
 type InputObject struct {
 	Name       string
 	Desc       string
-	Values     common.InputValueList
+	Values     types.InputValueList
 	Directives common.DirectiveList
 }
 
@@ -181,7 +182,7 @@ type DirectiveDecl struct {
 	Name string
 	Desc string
 	Locs []string
-	Args common.InputValueList
+	Args types.InputValueList
 }
 
 func (*Scalar) Kind() string      { return "SCALAR" }

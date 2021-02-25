@@ -152,7 +152,7 @@ func (b *Builder) makeNonNullPacker(schemaType common.Type, reflectType reflect.
 	}
 }
 
-func (b *Builder) MakeStructPacker(values common.InputValueList, typ reflect.Type) (*StructPacker, error) {
+func (b *Builder) MakeStructPacker(values types.InputValueList, typ reflect.Type) (*StructPacker, error) {
 	structType := typ
 	usePtr := false
 	if typ.Kind() == reflect.Ptr {

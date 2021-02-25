@@ -156,7 +156,7 @@ type EnumValue struct {
 type InputObject struct {
 	Name       string
 	Desc       string
-	Values     common.InputValueList
+	Values     types.InputValueList
 	Directives common.DirectiveList
 }
 
@@ -200,7 +200,7 @@ type DirectiveDecl struct {
 	Name string
 	Desc string
 	Locs []string
-	Args common.InputValueList
+	Args types.InputValueList
 }
 
 func (*Scalar) Kind() string      { return "SCALAR" }
@@ -235,7 +235,7 @@ func (t *InputObject) Description() string { return t.Desc }
 // http://facebook.github.io/graphql/draft/#FieldDefinition
 type Field struct {
 	Name       string
-	Args       common.InputValueList // NOTE: the spec refers to this as `ArgumentsDefinition`.
+	Args       types.InputValueList // NOTE: the spec refers to this as `ArgumentsDefinition`.
 	Type       common.Type
 	Directives common.DirectiveList
 	Desc       string
@@ -488,7 +488,7 @@ func resolveField(s *types.Schema, f *types.Field) error {
 	if err := resolveDirectives(s, f.Directives, "FIELD_DEFINITION"); err != nil {
 		return err
 	}
-	return resolveInputObject(s, f.Args)
+	return resolveInputObject(s, f.Arguments)
 }
 
 func resolveDirectives(s *types.Schema, directives types.DirectiveList, loc string) error {
@@ -522,7 +522,7 @@ func resolveDirectives(s *types.Schema, directives types.DirectiveList, loc stri
 	return nil
 }
 
-func resolveInputObject(s *types.Schema, values types.ArgumentsDefinition) error {
+func resolveInputObject(s *types.Schema, values types.ArgumentList) error {
 	for _, v := range values {
 		t, err := common.ResolveType(v.Type, s.Resolve)
 		if err != nil {
@@ -756,7 +756,7 @@ func parseFieldsDef(l *common.Lexer) types.FieldDefinition {
 		if l.Peek() == '(' {
 			l.ConsumeToken('(')
 			for l.Peek() != ')' {
-				f.Args = append(f.Args, common.ParseInputValue(l))
+				f.Arguments = append(f.Arguments, common.ParseInputValue(l))
 			}
 			l.ConsumeToken(')')
 		}

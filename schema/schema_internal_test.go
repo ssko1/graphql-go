@@ -25,7 +25,6 @@ func TestParseInterfaceDef(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) {
 			var actual *Interface
 			lex := setup(t, test.definition)
-
 			parse := func() { actual = parseInterfaceDef(lex) }
 			err := lex.CatchSyntaxError(parse)
 

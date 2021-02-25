@@ -16,16 +16,7 @@ type InputValue struct {
 	TypeLoc    errors.Location
 }
 
-type InputValueList []*InputValue
-
-func (l InputValueList) Get(name string) *InputValue {
-	for _, v := range l {
-		if v.Name.Name == name {
-			return v
-		}
-	}
-	return nil
-}
+type OperationType string
 
 func ParseInputValue(l *Lexer) *types.InputValue {
 	p := &types.InputValue{}

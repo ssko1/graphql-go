@@ -303,7 +303,7 @@ func validateSelection(c *opContext, sel query.Selection, t schema.NamedType) {
 		case "__type":
 			f = &schema.Field{
 				Name: "__type",
-				Args: common.InputValueList{
+				Args: types.InputValueList{
 					&common.InputValue{
 						Name: common.Ident{Name: "name"},
 						Type: &common.NonNull{OfType: c.schema.Types["String"]},
@@ -684,7 +684,7 @@ func validateNameCustomMsg(c *context, set nameSet, name common.Ident, rule stri
 	set[name.Name] = name.Loc
 }
 
-func validateArgumentTypes(c *opContext, args common.ArgumentList, argDecls common.InputValueList, loc errors.Location, owner1, owner2 func() string) {
+func validateArgumentTypes(c *opContext, args types.ArgumentList, argDecls common.InputValueList, loc errors.Location, owner1, owner2 func() string) {
 	for _, selArg := range args {
 		arg := argDecls.Get(selArg.Name.Name)
 		if arg == nil {

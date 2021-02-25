@@ -137,7 +137,7 @@ type FieldDefinition []*Field
 
 func (l FieldDefinition) Get(name string) *Field {
 	for _, f := range l {
-		if f.Name == name {
+		if f.Name.Name == name {
 			return f
 		}
 	}
@@ -147,7 +147,7 @@ func (l FieldDefinition) Get(name string) *Field {
 func (l FieldDefinition) Names() []string {
 	names := make([]string, len(l))
 	for i, f := range l {
-		names[i] = f.Name
+		names[i] = f.Name.Name
 	}
 	return names
 }
@@ -166,12 +166,24 @@ func (a ArgumentsDefinition) Get(name string) *InputValue {
 // Field is a conceptual function which yields values.
 // http://facebook.github.io/graphql/draft/#FieldDefinition
 type Field struct {
-	Name       string
-	Args       ArgumentsDefinition
-	Type       Type
-	Directives DirectiveList
-	Desc       string
+	Alias           Ident
+	Name            Ident
+	Arguments       ArgumentList
+	Type            Type
+	Directives      DirectiveList
+	Desc            string
+	Selections      []Selection
+	SelectionSetLoc errors.Location
 }
+
+// -type Field struct {
+// 	-	Alias           common.Ident
+// 	-	Name            common.Ident
+// 	-	Arguments       common.ArgumentList
+// 	-	Directives      common.DirectiveList
+// 	-	Selections      []Selection
+// 	-	SelectionSetLoc errors.Location
+// 	-}
 
 // Interface types represent a list of named fields and their arguments.
 //
