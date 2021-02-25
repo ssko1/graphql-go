@@ -6,6 +6,7 @@ import (
 
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 // Schema represents a GraphQL service's collective type system capabilities.
@@ -257,14 +258,132 @@ func New() *Schema {
 	return s
 }
 
+func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, error) {
+	l := common.NewLexer(schemaString, useStringDescriptions)
+	s := &types.Schema{}
+
+	err := l.CatchSyntaxError(func() { ParseSchema(s, l) })
+	if err != nil {
+		return nil, err
+	}
+
+	if err := mergeExtensionsPrime(s); err != nil {
+		return nil, err
+	}
+
+	for _, t := range s.Types {
+		if err := resolveNamedTypePrime(s, t); err != nil {
+			return nil, err
+		}
+	}
+	for _, d := range s.Directives {
+		for _, arg := range d.Args {
+			t, err := common.ResolveTypePrime(arg.Type, s.Resolve)
+			if err != nil {
+				return nil, err
+			}
+			arg.Type = t
+		}
+	}
+
+	// https://graphql.github.io/graphql-spec/June2018/#sec-Root-Operation-Types
+	// > While any type can be the root operation type for a GraphQL operation, the type system definition language can
+	// > omit the schema definition when the query, mutation, and subscription root types are named Query, Mutation,
+	// > and Subscription respectively.
+	if len(s.EntryPointNames) == 0 {
+		if _, ok := s.Types["Query"]; ok {
+			s.EntryPointNames["query"] = "Query"
+		}
+		if _, ok := s.Types["Mutation"]; ok {
+			s.EntryPointNames["mutation"] = "Mutation"
+		}
+		if _, ok := s.Types["Subscription"]; ok {
+			s.EntryPointNames["subscription"] = "Subscription"
+		}
+	}
+	s.EntryPoints = make(map[string]types.NamedType)
+	for key, name := range s.EntryPointNames {
+		t, ok := s.Types[name]
+		if !ok {
+			if !ok {
+				return nil, errors.Errorf("type %q not found", name)
+			}
+		}
+		s.EntryPoints[key] = t
+	}
+
+	for _, obj := range s.Objects {
+		obj.Interfaces = make([]*types.Interface, len(obj.InterfaceNames))
+		if err := resolveDirectivesPrime(s, obj.Directives, "OBJECT"); err != nil {
+			return nil, err
+		}
+		for _, field := range obj.Fields {
+			if err := resolveDirectivesPrime(s, field.Directives, "FIELD_DEFINITION"); err != nil {
+				return nil, err
+			}
+		}
+		for i, intfName := range obj.InterfaceNames {
+			t, ok := s.Types[intfName]
+			if !ok {
+				return nil, errors.Errorf("interface %q not found", intfName)
+			}
+			intf, ok := t.(*types.Interface)
+			if !ok {
+				return nil, errors.Errorf("type %q is not an interface", intfName)
+			}
+			for _, f := range intf.Fields.Names() {
+				if obj.Fields.Get(f) == nil {
+					return nil, errors.Errorf("interface %q expects field %q but %q does not provide it", intfName, f, obj.Name)
+				}
+			}
+			obj.Interfaces[i] = intf
+			intf.PossibleTypes = append(intf.PossibleTypes, obj)
+		}
+	}
+
+	for _, union := range s.Unions {
+		if err := resolveDirectivesPrime(s, union.Directives, "UNION"); err != nil {
+			return nil, err
+		}
+		union.PossibleTypes = make([]*types.Object, len(union.PossibleTypes))
+		for i, object := range union.PossibleTypes {
+			name := object.Name
+			t, ok := s.Types[name]
+			if !ok {
+				return nil, errors.Errorf("object type %q not found", name)
+			}
+			obj, ok := t.(*types.Object)
+			if !ok {
+				return nil, errors.Errorf("type %q is not an object", name)
+			}
+			union.PossibleTypes[i] = obj
+		}
+	}
+
+	for _, enum := range s.Enums {
+		if err := resolveDirectivesPrime(s, enum.Directives, "ENUM"); err != nil {
+			return nil, err
+		}
+		for _, value := range enum.Values {
+			if err := resolveDirectivesPrime(s, value.Directives, "ENUM_VALUE"); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return s, nil
+
+}
+
 // Parse the schema string.
 func (s *Schema) Parse(schemaString string, useStringDescriptions bool) error {
 	l := common.NewLexer(schemaString, useStringDescriptions)
+	_ = l
 
-	err := l.CatchSyntaxError(func() { parseSchema(s, l) })
-	if err != nil {
-		return err
-	}
+	// err := l.CatchSyntaxError(func() { parseSchema(s, l) })
+	// if err != nil {
+	// 	return err
+	// }
 
 	if err := mergeExtensions(s); err != nil {
 		return err
@@ -372,6 +491,88 @@ func (s *Schema) Parse(schemaString string, useStringDescriptions bool) error {
 	return nil
 }
 
+func mergeExtensionsPrime(s *types.Schema) error {
+	for _, ext := range s.Extensions {
+		typ := s.Types[ext.Type.TypeName()]
+		if typ == nil {
+			return fmt.Errorf("trying to extend unknown type %q", ext.Type.TypeName())
+		}
+
+		if typ.Kind() != ext.Type.Kind() {
+			return fmt.Errorf("trying to extend type %q with type %q", typ.Kind(), ext.Type.Kind())
+		}
+
+		switch og := typ.(type) {
+		case *Object:
+			e := ext.Type.(*Object)
+
+			for _, field := range e.Fields {
+				if og.Fields.Get(field.Name) != nil {
+					return fmt.Errorf("extended field %q already exists", field.Name)
+				}
+			}
+			og.Fields = append(og.Fields, e.Fields...)
+
+			for _, en := range e.interfaceNames {
+				for _, on := range og.interfaceNames {
+					if on == en {
+						return fmt.Errorf("interface %q implemented in the extension is already implemented in %q", on, og.Name)
+					}
+				}
+			}
+			og.interfaceNames = append(og.interfaceNames, e.interfaceNames...)
+
+		case *InputObject:
+			e := ext.Type.(*InputObject)
+
+			for _, field := range e.Values {
+				if og.Values.Get(field.Name.Name) != nil {
+					return fmt.Errorf("extended field %q already exists", field.Name)
+				}
+			}
+			og.Values = append(og.Values, e.Values...)
+
+		case *Interface:
+			e := ext.Type.(*Interface)
+
+			for _, field := range e.Fields {
+				if og.Fields.Get(field.Name) != nil {
+					return fmt.Errorf("extended field %s already exists", field.Name)
+				}
+			}
+			og.Fields = append(og.Fields, e.Fields...)
+
+		case *Union:
+			e := ext.Type.(*Union)
+
+			for _, en := range e.typeNames {
+				for _, on := range og.typeNames {
+					if on == en {
+						return fmt.Errorf("union type %q already declared in %q", on, og.Name)
+					}
+				}
+			}
+			og.typeNames = append(og.typeNames, e.typeNames...)
+
+		case *Enum:
+			e := ext.Type.(*Enum)
+
+			for _, en := range e.Values {
+				for _, on := range og.Values {
+					if on.Name == en.Name {
+						return fmt.Errorf("enum value %q already declared in %q", on.Name, og.Name)
+					}
+				}
+			}
+			og.Values = append(og.Values, e.Values...)
+		default:
+			return fmt.Errorf(`unexpected %q, expecting "schema", "type", "enum", "interface", "union" or "input"`, og.TypeName())
+		}
+	}
+
+	return nil
+}
+
 func mergeExtensions(s *Schema) error {
 	for _, ext := range s.extensions {
 		typ := s.Types[ext.Type.TypeName()]
@@ -454,6 +655,28 @@ func mergeExtensions(s *Schema) error {
 	return nil
 }
 
+func resolveNamedTypePrime(s *types.Schema, t types.NamedType) error {
+	switch t := t.(type) {
+	case *types.Object:
+		for _, f := range t.Fields {
+			if err := resolveFieldPrime(s, f); err != nil {
+				return err
+			}
+		}
+	case *types.Interface:
+		for _, f := range t.Fields {
+			if err := resolveFieldPrime(s, f); err != nil {
+				return err
+			}
+		}
+	case *types.InputObject:
+		if err := resolveInputObjectPrime(s, t.Values); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func resolveNamedType(s *Schema, t NamedType) error {
 	switch t := t.(type) {
 	case *Object:
@@ -476,6 +699,18 @@ func resolveNamedType(s *Schema, t NamedType) error {
 	return nil
 }
 
+func resolveFieldPrime(s *types.Schema, f *types.Field) error {
+	t, err := common.ResolveTypePrime(f.Type, s.Resolve)
+	if err != nil {
+		return err
+	}
+	f.Type = t
+	if err := resolveDirectivesPrime(s, f.Directives, "FIELD_DEFINITION"); err != nil {
+		return err
+	}
+	return resolveInputObjectPrime(s, f.Args)
+}
+
 func resolveField(s *Schema, f *Field) error {
 	t, err := common.ResolveType(f.Type, s.Resolve)
 	if err != nil {
@@ -486,6 +721,37 @@ func resolveField(s *Schema, f *Field) error {
 		return err
 	}
 	return resolveInputObject(s, f.Args)
+}
+
+func resolveDirectivesPrime(s *types.Schema, directives types.DirectiveList, loc string) error {
+	for _, d := range directives {
+		dirName := d.Name.Name
+		dd, ok := s.Directives[dirName]
+		if !ok {
+			return errors.Errorf("directive %q not found", dirName)
+		}
+		validLoc := false
+		for _, l := range dd.Locs {
+			if l == loc {
+				validLoc = true
+				break
+			}
+		}
+		if !validLoc {
+			return errors.Errorf("invalid location %q for directive %q (must be one of %v)", loc, dirName, dd.Locs)
+		}
+		for _, arg := range d.Args {
+			if dd.Args.Get(arg.Name.Name) == nil {
+				return errors.Errorf("invalid argument %q for directive %q", arg.Name.Name, dirName)
+			}
+		}
+		// for _, arg := range dd.Args {
+		// 	if _, ok := d.Args.Get(arg.Name.Name); !ok {
+		// 		d.Args = append(d.Args, common.Argument{Name: arg.Name, Value: arg.Default})
+		// 	}
+		// }
+	}
+	return nil
 }
 
 func resolveDirectives(s *Schema, directives common.DirectiveList, loc string) error {
@@ -519,6 +785,17 @@ func resolveDirectives(s *Schema, directives common.DirectiveList, loc string) e
 	return nil
 }
 
+func resolveInputObjectPrime(s *types.Schema, values types.ArgumentsDefinition) error {
+	for _, v := range values {
+		t, err := common.ResolveTypePrime(v.Type, s.Resolve)
+		if err != nil {
+			return err
+		}
+		v.Type = t
+	}
+	return nil
+}
+
 func resolveInputObject(s *Schema, values common.InputValueList) error {
 	for _, v := range values {
 		t, err := common.ResolveType(v.Type, s.Resolve)
@@ -530,7 +807,7 @@ func resolveInputObject(s *Schema, values common.InputValueList) error {
 	return nil
 }
 
-func parseSchema(s *Schema, l *common.Lexer) {
+func ParseSchema(s *types.Schema, l *common.Lexer) {
 	l.ConsumeWhitespace()
 
 	for l.Peek() != scanner.EOF {
@@ -543,15 +820,15 @@ func parseSchema(s *Schema, l *common.Lexer) {
 				name := l.ConsumeIdent()
 				l.ConsumeToken(':')
 				typ := l.ConsumeIdent()
-				s.entryPointNames[name] = typ
+				s.EntryPointNames[name] = typ
 			}
 			l.ConsumeToken('}')
 
 		case "type":
-			obj := parseObjectDef(l)
+			obj := parseObjectDefPrime(l)
 			obj.Desc = desc
 			s.Types[obj.Name] = obj
-			s.objects = append(s.objects, obj)
+			s.Objects = append(s.Objects, obj)
 
 		case "interface":
 			iface := parseInterfaceDef(l)
@@ -559,16 +836,16 @@ func parseSchema(s *Schema, l *common.Lexer) {
 			s.Types[iface.Name] = iface
 
 		case "union":
-			union := parseUnionDef(l)
+			union := parseUnionDefPrime(l)
 			union.Desc = desc
 			s.Types[union.Name] = union
-			s.unions = append(s.unions, union)
+			s.Unions = append(s.Unions, union)
 
 		case "enum":
-			enum := parseEnumDef(l)
+			enum := parseEnumDefPrime(l)
 			enum.Desc = desc
 			s.Types[enum.Name] = enum
-			s.enums = append(s.enums, enum)
+			s.Enums = append(s.Enums, enum)
 
 		case "input":
 			input := parseInputDef(l)
@@ -581,18 +858,49 @@ func parseSchema(s *Schema, l *common.Lexer) {
 			s.Types[name] = &Scalar{Name: name, Desc: desc, Directives: directives}
 
 		case "directive":
-			directive := parseDirectiveDef(l)
+			directive := parseDirectiveDefPrime(l)
 			directive.Desc = desc
 			s.Directives[directive.Name] = directive
 
 		case "extend":
-			parseExtension(s, l)
+			parseExtensionPrime(s, l)
 
 		default:
 			// TODO: Add support for type extensions.
 			l.SyntaxError(fmt.Sprintf(`unexpected %q, expecting "schema", "type", "enum", "interface", "union", "input", "scalar" or "directive"`, x))
 		}
 	}
+}
+
+func parseObjectDefPrime(l *common.Lexer) *types.Object {
+	object := &types.Object{Name: l.ConsumeIdent()}
+
+	for {
+		if l.Peek() == '{' {
+			break
+		}
+
+		if l.Peek() == '@' {
+			object.Directives = common.ParseDirectivesPrime(l)
+			continue
+		}
+
+		if l.Peek() == scanner.Ident {
+			l.ConsumeKeyword("implements")
+
+			for l.Peek() != '{' && l.Peek() != '@' {
+				if l.Peek() == '&' {
+					l.ConsumeToken('&')
+				}
+
+				object.InterfaceNames = append(object.InterfaceNames, l.ConsumeIdent())
+			}
+			continue
+		}
+
+	}
+	return object
+
 }
 
 func parseObjectDef(l *common.Lexer) *Object {
@@ -642,6 +950,17 @@ func parseInterfaceDef(l *common.Lexer) *Interface {
 	return i
 }
 
+func parseInterfaceDefPrime(l *common.Lexer) *types.Interface {
+	i := &types.Interface{Name: l.ConsumeIdent()}
+
+	i.Directives = common.ParseDirectivesPrime(l)
+	l.ConsumeToken('{')
+	i.Fields = parseFieldsDefPrime(l)
+	l.ConsumeToken('}')
+
+	return i
+}
+
 func parseUnionDef(l *common.Lexer) *Union {
 	union := &Union{Name: l.ConsumeIdent()}
 
@@ -656,6 +975,20 @@ func parseUnionDef(l *common.Lexer) *Union {
 	return union
 }
 
+func parseUnionDefPrime(l *common.Lexer) *types.Union {
+	union := &types.Union{Name: l.ConsumeIdent()}
+
+	union.Directives = common.ParseDirectivesPrime(l)
+	l.ConsumeToken('=')
+	union.TypeNames = []string{l.ConsumeIdent()}
+	for l.Peek() == '|' {
+		l.ConsumeToken('|')
+		union.TypeNames = append(union.TypeNames, l.ConsumeIdent())
+	}
+
+	return union
+}
+
 func parseInputDef(l *common.Lexer) *InputObject {
 	i := &InputObject{}
 	i.Name = l.ConsumeIdent()
@@ -663,6 +996,18 @@ func parseInputDef(l *common.Lexer) *InputObject {
 	l.ConsumeToken('{')
 	for l.Peek() != '}' {
 		i.Values = append(i.Values, common.ParseInputValue(l))
+	}
+	l.ConsumeToken('}')
+	return i
+}
+
+func parseInputDefPrime(l *common.Lexer) *types.InputObject {
+	i := &types.InputObject{}
+	i.Name = l.ConsumeIdent()
+	i.Directives = common.ParseDirectivesPrime(l)
+	l.ConsumeToken('{')
+	for l.Peek() != '}' {
+		i.Values = append(i.Values, common.ParseInputValuePrime(l))
 	}
 	l.ConsumeToken('}')
 	return i
@@ -686,6 +1031,24 @@ func parseEnumDef(l *common.Lexer) *Enum {
 	return enum
 }
 
+func parseEnumDefPrime(l *common.Lexer) *types.Enum {
+	enum := &types.Enum{Name: l.ConsumeIdent()}
+
+	enum.Directives = common.ParseDirectivesPrime(l)
+	l.ConsumeToken('{')
+	for l.Peek() != '}' {
+		v := &types.EnumValuesDefinition{
+			Desc:       l.DescComment(),
+			Name:       l.ConsumeIdent(),
+			Directives: common.ParseDirectivesPrime(l),
+		}
+
+		enum.Values = append(enum.Values, v)
+	}
+	l.ConsumeToken('}')
+	return enum
+}
+
 func parseDirectiveDef(l *common.Lexer) *DirectiveDecl {
 	l.ConsumeToken('@')
 	d := &DirectiveDecl{Name: l.ConsumeIdent()}
@@ -694,6 +1057,32 @@ func parseDirectiveDef(l *common.Lexer) *DirectiveDecl {
 		l.ConsumeToken('(')
 		for l.Peek() != ')' {
 			v := common.ParseInputValue(l)
+			d.Args = append(d.Args, v)
+		}
+		l.ConsumeToken(')')
+	}
+
+	l.ConsumeKeyword("on")
+
+	for {
+		loc := l.ConsumeIdent()
+		d.Locs = append(d.Locs, loc)
+		if l.Peek() != '|' {
+			break
+		}
+		l.ConsumeToken('|')
+	}
+	return d
+}
+
+func parseDirectiveDefPrime(l *common.Lexer) *types.DirectiveDecl {
+	l.ConsumeToken('@')
+	d := &types.DirectiveDecl{Name: l.ConsumeIdent()}
+
+	if l.Peek() == '(' {
+		l.ConsumeToken('(')
+		for l.Peek() != ')' {
+			v := common.ParseInputValuePrime(l)
 			d.Args = append(d.Args, v)
 		}
 		l.ConsumeToken(')')
@@ -750,6 +1139,44 @@ func parseExtension(s *Schema, l *common.Lexer) {
 	}
 }
 
+func parseExtensionPrime(s *types.Schema, l *common.Lexer) {
+	switch x := l.ConsumeIdent(); x {
+	case "schema":
+		l.ConsumeToken('{')
+		for l.Peek() != '}' {
+			name := l.ConsumeIdent()
+			l.ConsumeToken(':')
+			typ := l.ConsumeIdent()
+			s.EntryPointNames[name] = typ
+		}
+		l.ConsumeToken('}')
+
+	case "type":
+		obj := parseObjectDefPrime(l)
+		s.Extensions = append(s.Extensions, &types.Extension{Type: obj})
+
+	case "interface":
+		iface := parseInterfaceDefPrime(l)
+		s.Extensions = append(s.Extensions, &types.Extension{Type: iface})
+
+	case "union":
+		union := parseUnionDefPrime(l)
+		s.Extensions = append(s.Extensions, &types.Extension{Type: union})
+
+	case "enum":
+		enum := parseEnumDefPrime(l)
+		s.Extensions = append(s.Extensions, &types.Extension{Type: enum})
+
+	case "input":
+		input := parseInputDef(l)
+		s.Extensions = append(s.Extensions, &types.Extension{Type: input})
+
+	default:
+		// TODO: Add Scalar when adding directives
+		l.SyntaxError(fmt.Sprintf(`unexpected %q, expecting "schema", "type", "enum", "interface", "union" or "input"`, x))
+	}
+}
+
 func parseFieldsDef(l *common.Lexer) FieldList {
 	var fields FieldList
 	for l.Peek() != '}' {
@@ -766,6 +1193,27 @@ func parseFieldsDef(l *common.Lexer) FieldList {
 		l.ConsumeToken(':')
 		f.Type = common.ParseType(l)
 		f.Directives = common.ParseDirectives(l)
+		fields = append(fields, f)
+	}
+	return fields
+}
+
+func parseFieldsDefPrime(l *common.Lexer) types.FieldDefinition {
+	var fields types.FieldDefinition
+	for l.Peek() != '}' {
+		f := &types.Field{}
+		f.Desc = l.DescComment()
+		f.Name = l.ConsumeIdent()
+		if l.Peek() == '(' {
+			l.ConsumeToken('(')
+			for l.Peek() != ')' {
+				f.Args = append(f.Args, common.ParseInputValuePrime(l))
+			}
+			l.ConsumeToken(')')
+		}
+		l.ConsumeToken(':')
+		f.Type = common.ParseTypePrime(l)
+		f.Directives = common.ParseDirectivesPrime(l)
 		fields = append(fields, f)
 	}
 	return fields

@@ -3,11 +3,14 @@ package common
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 	"text/scanner"
 
 	"github.com/graph-gophers/graphql-go/errors"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type syntaxError string
@@ -22,6 +25,30 @@ type Lexer struct {
 type Ident struct {
 	Name string
 	Loc  errors.Location
+}
+
+// Twitch Extension
+func NewFileScanner(path string) (*Lexer, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO false??
+	l := NewLexerReader(f, false)
+	return l, nil
+}
+
+func NewLexerReader(r io.Reader, useStringDescriptions bool) *Lexer {
+	sc := &scanner.Scanner{
+		Mode: scanner.ScanIdents | scanner.ScanInts | scanner.ScanFloats | scanner.ScanStrings,
+	}
+	sc.Init(r)
+
+	l := Lexer{sc: sc, useStringDescriptions: useStringDescriptions}
+	l.sc.Error = l.CatchScannerError
+
+	return &l
 }
 
 func NewLexer(s string, useStringDescriptions bool) *Lexer {
@@ -123,6 +150,13 @@ func (l *Lexer) ConsumeIdentWithLoc() Ident {
 	name := l.sc.TokenText()
 	l.ConsumeToken(scanner.Ident)
 	return Ident{name, loc}
+}
+
+func (l *Lexer) ConsumeIdentWithLocPrime() types.Ident {
+	loc := l.Location()
+	name := l.sc.TokenText()
+	l.ConsumeToken(scanner.Ident)
+	return types.Ident{name, loc}
 }
 
 func (l *Lexer) ConsumeKeyword(keyword string) {

@@ -287,3 +287,10 @@ type Field struct {
 	Directives DirectiveList
 	Desc       string
 }
+
+func (f *Field) Description() *string {
+	if f.Desc == "" {
+		return nil
+	}
+	return &f.Desc
+}

@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/graph-gophers/graphql-go/errors"
 	"strings"
+
+	"github.com/graph-gophers/graphql-go/errors"
 )
 
 // Schema represents a GraphQL service's collective type system capabilities.
@@ -18,7 +19,7 @@ type Schema struct {
 	//
 	// http://facebook.github.io/graphql/draft/#sec-Root-Operation-Types
 	//
-	RootOperationTypes map[string]NamedType
+	EntryPoints map[string]NamedType
 
 	// Types are the fundamental unit of any GraphQL schema.
 	// There are six kinds of named types, and two wrapping types.
@@ -34,6 +35,47 @@ type Schema struct {
 	Directives map[string]*DirectiveDecl
 
 	UseFieldResolvers bool
+
+	EntryPointNames map[string]string
+	Objects         []*Object
+	Unions          []*Union
+	Enums           []*Enum
+	Extensions      []*Extension
+}
+
+func (s *Schema) Resolve(name string) Type {
+	return s.Types[name]
+}
+
+// Extension type defines a GraphQL type extension.
+// Schemas, Objects, Inputs and Scalars can be extended.
+//
+// https://facebook.github.io/graphql/draft/#sec-Type-System-Extensions
+type Extension struct {
+	Type       NamedType
+	Directives DirectiveList
+}
+
+// EnumValuesDefinition types are unique values that may be serialized as a string: the name of the
+// represented value.
+//
+// http://facebook.github.io/graphql/draft/#EnumValueDefinition
+type EnumValuesDefinition struct {
+	Name       string
+	Directives DirectiveList
+	Desc       string
+}
+
+// Enum types describe a set of possible values.
+//
+// Like scalar types, Enum types also represent leaf values in a GraphQL type system.
+//
+// http://facebook.github.io/graphql/draft/#sec-Enums
+type Enum struct {
+	Name       string
+	Values     []*EnumValuesDefinition // NOTE: the spec refers to this as `EnumValuesDefinition`.
+	Desc       string
+	Directives DirectiveList
 }
 
 type Literal interface {
@@ -59,13 +101,14 @@ type InputValue struct {
 	TypeLoc    errors.Location
 }
 
-type InputValueList []*InputValue
+// Replaced with ArgumentsDefinition
+// type InputValueList []*InputValue
 
 type DirectiveDecl struct {
 	Name string
 	Desc string
 	Locs []string
-	Args InputValueList
+	Args ArgumentsDefinition
 }
 
 // NamedType represents a type with a name.
@@ -83,6 +126,8 @@ type Object struct {
 	Fields     FieldDefinition
 	Desc       string
 	Directives DirectiveList
+
+	InterfaceNames []string
 }
 
 // FieldDefinition is a list of an Object's Fields.
@@ -90,7 +135,33 @@ type Object struct {
 // http://facebook.github.io/graphql/draft/#FieldsDefinition
 type FieldDefinition []*Field
 
+func (l FieldDefinition) Get(name string) *Field {
+	for _, f := range l {
+		if f.Name == name {
+			return f
+		}
+	}
+	return nil
+}
+
+func (l FieldDefinition) Names() []string {
+	names := make([]string, len(l))
+	for i, f := range l {
+		names[i] = f.Name
+	}
+	return names
+}
+
 type ArgumentsDefinition []*InputValue
+
+func (a ArgumentsDefinition) Get(name string) *InputValue {
+	for _, inputValue := range a {
+		if inputValue.Name.Name == name {
+			return inputValue
+		}
+	}
+	return nil
+}
 
 // Field is a conceptual function which yields values.
 // http://facebook.github.io/graphql/draft/#FieldDefinition
@@ -126,7 +197,16 @@ type Argument struct {
 	Value Literal
 }
 
-type ArgumentList []Argument
+type ArgumentList []*Argument
+
+func (l ArgumentList) Get(name string) *Argument {
+	for _, a := range l {
+		if a.Name.Name == name {
+			return a
+		}
+	}
+	return nil
+}
 
 type DirectiveList []*Directive
 
@@ -322,3 +402,72 @@ func (v Variable) String() string {
 func (v *Variable) Location() errors.Location {
 	return v.Loc
 }
+
+// Scalar types represent primitive leaf values (e.g. a string or an integer) in a GraphQL type
+// system.
+//
+// GraphQL responses take the form of a hierarchical tree; the leaves on these trees are GraphQL
+// scalars.
+//
+// http://facebook.github.io/graphql/draft/#sec-Scalars
+type Scalar struct {
+	Name       string
+	Desc       string
+	Directives DirectiveList
+}
+
+// Union types represent objects that could be one of a list of GraphQL object types, but provides no
+// guaranteed fields between those types.
+//
+// They also differ from interfaces in that object types declare what interfaces they implement, but
+// are not aware of what unions contain them.
+//
+// http://facebook.github.io/graphql/draft/#sec-Unions
+type Union struct {
+	Name          string
+	PossibleTypes []*Object // NOTE: the spec refers to this as `UnionMemberTypes`.
+	Desc          string
+	Directives    DirectiveList
+	TypeNames     []string
+}
+
+// InputObject types define a set of input fields; the input fields are either scalars, enums, or
+// other input objects.
+//
+// This allows arguments to accept arbitrarily complex structs.
+//
+// http://facebook.github.io/graphql/draft/#sec-Input-Objects
+type InputObject struct {
+	Name       string
+	Desc       string
+	Values     ArgumentsDefinition
+	Directives DirectiveList
+}
+
+func (*Scalar) Kind() string      { return "SCALAR" }
+func (*Object) Kind() string      { return "OBJECT" }
+func (*Interface) Kind() string   { return "INTERFACE" }
+func (*Union) Kind() string       { return "UNION" }
+func (*Enum) Kind() string        { return "ENUM" }
+func (*InputObject) Kind() string { return "INPUT_OBJECT" }
+
+func (t *Scalar) String() string      { return t.Name }
+func (t *Object) String() string      { return t.Name }
+func (t *Interface) String() string   { return t.Name }
+func (t *Union) String() string       { return t.Name }
+func (t *Enum) String() string        { return t.Name }
+func (t *InputObject) String() string { return t.Name }
+
+func (t *Scalar) TypeName() string      { return t.Name }
+func (t *Object) TypeName() string      { return t.Name }
+func (t *Interface) TypeName() string   { return t.Name }
+func (t *Union) TypeName() string       { return t.Name }
+func (t *Enum) TypeName() string        { return t.Name }
+func (t *InputObject) TypeName() string { return t.Name }
+
+func (t *Scalar) Description() string      { return t.Desc }
+func (t *Object) Description() string      { return t.Desc }
+func (t *Interface) Description() string   { return t.Desc }
+func (t *Union) Description() string       { return t.Desc }
+func (t *Enum) Description() string        { return t.Desc }
+func (t *InputObject) Description() string { return t.Desc }

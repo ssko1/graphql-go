@@ -1,5 +1,7 @@
 package common
 
+import "github.com/graph-gophers/graphql-go/types"
+
 type Directive struct {
 	Name Ident
 	Args ArgumentList
@@ -29,4 +31,19 @@ func (l DirectiveList) Get(name string) *Directive {
 		}
 	}
 	return nil
+}
+
+func ParseDirectivesPrime(l *Lexer) types.DirectiveList {
+	var directives types.DirectiveList
+	for l.Peek() == '@' {
+		l.ConsumeToken('@')
+		d := &types.Directive{}
+		d.Name = l.ConsumeIdentWithLocPrime()
+		d.Name.Loc.Column--
+		if l.Peek() == '(' {
+			d.Args = ParseArgumentsPrime(l)
+		}
+		directives = append(directives, d)
+	}
+	return directives
 }

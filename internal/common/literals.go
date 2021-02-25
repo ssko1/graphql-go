@@ -6,6 +6,7 @@ import (
 	"text/scanner"
 
 	"github.com/graph-gophers/graphql-go/errors"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type Literal interface {
@@ -198,6 +199,57 @@ func ParseLiteral(l *Lexer, constOnly bool) Literal {
 		}
 		l.ConsumeToken('}')
 		return &ObjectLit{fields, loc}
+
+	default:
+		l.SyntaxError("invalid value")
+		panic("unreachable")
+	}
+}
+
+func ParseLiteralPrime(l *Lexer, constOnly bool) types.Literal {
+	loc := l.Location()
+	switch l.Peek() {
+	case '$':
+		if constOnly {
+			l.SyntaxError("variable not allowed")
+			panic("unreachable")
+		}
+		l.ConsumeToken('$')
+		return &types.Variable{l.ConsumeIdent(), loc}
+
+	case scanner.Int, scanner.Float, scanner.String, scanner.Ident:
+		lit := l.ConsumeLiteral()
+		if lit.Type == scanner.Ident && lit.Text == "null" {
+			return &types.NullLit{loc}
+		}
+		lit.Loc = loc
+		return lit
+	case '-':
+		l.ConsumeToken('-')
+		lit := l.ConsumeLiteral()
+		lit.Text = "-" + lit.Text
+		lit.Loc = loc
+		return lit
+	case '[':
+		l.ConsumeToken('[')
+		var list []types.Literal
+		for l.Peek() != ']' {
+			list = append(list, ParseLiteral(l, constOnly))
+		}
+		l.ConsumeToken(']')
+		return &types.ListLit{list, loc}
+
+	case '{':
+		l.ConsumeToken('{')
+		var fields []*types.ObjectLitField
+		for l.Peek() != '}' {
+			name := l.ConsumeIdentWithLocPrime()
+			l.ConsumeToken(':')
+			value := ParseLiteral(l, constOnly)
+			fields = append(fields, &types.ObjectLitField{name, value})
+		}
+		l.ConsumeToken('}')
+		return &types.ObjectLit{fields, loc}
 
 	default:
 		l.SyntaxError("invalid value")
