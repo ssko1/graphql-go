@@ -74,3 +74,15 @@ func ParseArguments(l *Lexer) types.ArgumentList {
 	l.ConsumeToken(')')
 	return args
 }
+
+func ParseArgumentsDef(l *Lexer) types.ArgumentsDefinition {
+	var args types.ArgumentsDefinition
+	l.ConsumeToken('(')
+	for l.Peek() != ')' {
+		l.ConsumeToken(':')
+		value := ParseInputValue(l)
+		args = append(args, value)
+	}
+	l.ConsumeToken(')')
+	return args
+}

@@ -522,7 +522,7 @@ func resolveDirectives(s *types.Schema, directives types.DirectiveList, loc stri
 	return nil
 }
 
-func resolveInputObject(s *types.Schema, values types.ArgumentList) error {
+func resolveInputObject(s *types.Schema, values types.ArgumentsDefinition) error {
 	for _, v := range values {
 		t, err := common.ResolveType(v.Type, s.Resolve)
 		if err != nil {
@@ -752,7 +752,7 @@ func parseFieldsDef(l *common.Lexer) types.FieldDefinition {
 	for l.Peek() != '}' {
 		f := &types.Field{}
 		f.Desc = l.DescComment()
-		f.Name = l.ConsumeIdent()
+		f.Name = l.ConsumeIdentWithLoc()
 		if l.Peek() == '(' {
 			l.ConsumeToken('(')
 			for l.Peek() != ')' {

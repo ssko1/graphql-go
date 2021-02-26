@@ -5,25 +5,29 @@ import (
 
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 func TestParseInterfaceDef(t *testing.T) {
 	type testCase struct {
 		description string
 		definition  string
-		expected    *Interface
+		expected    *types.Interface
 		err         *errors.QueryError
 	}
 
 	tests := []testCase{{
 		description: "Parses simple interface",
 		definition:  "Greeting { field: String }",
-		expected:    &Interface{Name: "Greeting", Fields: []*Field{{Name: "field"}}},
+		expected: &types.Interface{Name: "Greeting", Fields: types.FieldDefinition{
+			&types.Field{
+				Name: types.Ident{Name: "field"},
+			}}},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			var actual *Interface
+			var actual *types.Interface
 			lex := setup(t, test.definition)
 			parse := func() { actual = parseInterfaceDef(lex) }
 			err := lex.CatchSyntaxError(parse)

@@ -5,6 +5,7 @@ import (
 
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/schema"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type Schema struct {
@@ -167,7 +168,7 @@ func (r *Type) EnumValues(args *struct{ IncludeDeprecated bool }) *[]*EnumValue 
 }
 
 func (r *Type) InputFields() *[]*InputValue {
-	t, ok := r.typ.(*schema.InputObject)
+	t, ok := r.typ.(*types.InputObject)
 	if !ok {
 		return nil
 	}
@@ -181,9 +182,9 @@ func (r *Type) InputFields() *[]*InputValue {
 
 func (r *Type) OfType() *Type {
 	switch t := r.typ.(type) {
-	case *common.List:
+	case *types.List:
 		return &Type{t.OfType}
-	case *common.NonNull:
+	case *types.NonNull:
 		return &Type{t.OfType}
 	default:
 		return nil
@@ -231,7 +232,7 @@ func (r *Field) DeprecationReason() *string {
 }
 
 type InputValue struct {
-	value *common.InputValue
+	value *types.InputValue
 }
 
 func (r *InputValue) Name() string {

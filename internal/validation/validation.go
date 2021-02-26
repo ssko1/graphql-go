@@ -10,13 +10,13 @@ import (
 
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
-	"github.com/graph-gophers/graphql-go/internal/query"
 	"github.com/graph-gophers/graphql-go/internal/schema"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type varSet map[*common.InputValue]struct{}
 
-type selectionPair struct{ a, b query.Selection }
+type selectionPair struct{ a, b types.Selection }
 
 type fieldInfo struct {
 	sf     *schema.Field
@@ -24,12 +24,12 @@ type fieldInfo struct {
 }
 
 type context struct {
-	schema           *schema.Schema
-	doc              *query.Document
+	schema           *types.Schema
+	doc              *types.Document
 	errs             []*errors.QueryError
-	opErrs           map[*query.Operation][]*errors.QueryError
-	usedVars         map[*query.Operation]varSet
-	fieldMap         map[*query.Field]fieldInfo
+	opErrs           map[*types.Operation][]*errors.QueryError
+	usedVars         map[*types.Operation]varSet
+	fieldMap         map[*types.Field]fieldInfo
 	overlapValidated map[selectionPair]struct{}
 	maxDepth         int
 }
@@ -48,29 +48,29 @@ func (c *context) addErrMultiLoc(locs []errors.Location, rule string, format str
 
 type opContext struct {
 	*context
-	ops []*query.Operation
+	ops []*types.Operation
 }
 
-func newContext(s *schema.Schema, doc *query.Document, maxDepth int) *context {
+func newContext(s *types.Schema, doc *types.Document, maxDepth int) *context {
 	return &context{
 		schema:           s,
 		doc:              doc,
-		opErrs:           make(map[*query.Operation][]*errors.QueryError),
-		usedVars:         make(map[*query.Operation]varSet),
-		fieldMap:         make(map[*query.Field]fieldInfo),
+		opErrs:           make(map[*types.Operation][]*errors.QueryError),
+		usedVars:         make(map[*types.Operation]varSet),
+		fieldMap:         make(map[*types.Field]fieldInfo),
 		overlapValidated: make(map[selectionPair]struct{}),
 		maxDepth:         maxDepth,
 	}
 }
 
-func Validate(s *schema.Schema, doc *query.Document, variables map[string]interface{}, maxDepth int) []*errors.QueryError {
+func Validate(s *types.Schema, doc *types.Document, variables map[string]interface{}, maxDepth int) []*errors.QueryError {
 	c := newContext(s, doc, maxDepth)
 
 	opNames := make(nameSet)
-	fragUsedBy := make(map[*query.FragmentDecl][]*query.Operation)
+	fragUsedBy := make(map[*types.FragmentDecl][]*types.Operation)
 	for _, op := range doc.Operations {
 		c.usedVars[op] = make(varSet)
-		opc := &opContext{c, []*query.Operation{op}}
+		opc := &opContext{c, []*types.Operation{op}}
 
 		// Check if max depth is exceeded, if it's set. If max depth is exceeded,
 		// don't continue to validate the document and exit early.
@@ -114,9 +114,9 @@ func Validate(s *schema.Schema, doc *query.Document, variables map[string]interf
 
 		var entryPoint schema.NamedType
 		switch op.Type {
-		case query.Query:
+		case types.Query:
 			entryPoint = s.EntryPoints["query"]
-		case query.Mutation:
+		case types.Mutation:
 			entryPoint = s.EntryPoints["mutation"]
 		case query.Subscription:
 			entryPoint = s.EntryPoints["subscription"]
@@ -233,7 +233,7 @@ func validateValue(c *opContext, v *common.InputValue, val interface{}, t common
 
 // validates the query doesn't go deeper than maxDepth (if set). Returns whether
 // or not query validated max depth to avoid excessive recursion.
-func validateMaxDepth(c *opContext, sels []query.Selection, depth int) bool {
+func validateMaxDepth(c *opContext, sels []types.Selection, depth int) bool {
 	// maxDepth checking is turned off when maxDepth is 0
 	if c.maxDepth == 0 {
 		return false
@@ -270,7 +270,7 @@ func validateMaxDepth(c *opContext, sels []query.Selection, depth int) bool {
 	return exceededMaxDepth
 }
 
-func validateSelectionSet(c *opContext, sels []query.Selection, t schema.NamedType) {
+func validateSelectionSet(c *opContext, sels []types.Selection, t schema.NamedType) {
 	for _, sel := range sels {
 		validateSelection(c, sel, t)
 	}
@@ -670,7 +670,7 @@ func validateDirectives(c *opContext, loc string, directives common.DirectiveLis
 
 type nameSet map[string]errors.Location
 
-func validateName(c *context, set nameSet, name common.Ident, rule string, kind string) {
+func validateName(c *context, set nameSet, name type.Ident, rule string, kind string) {
 	validateNameCustomMsg(c, set, name, rule, func() string {
 		return fmt.Sprintf("There can be only one %s named %q.", kind, name.Name)
 	})

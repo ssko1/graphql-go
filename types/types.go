@@ -168,10 +168,20 @@ func (a ArgumentsDefinition) Get(name string) *InputValue {
 type Field struct {
 	Alias           Ident
 	Name            Ident
-	Arguments       ArgumentList
+	Arguments       ArgumentsDefinition
 	Type            Type
 	Directives      DirectiveList
 	Desc            string
+	Selections      []Selection
+	SelectionSetLoc errors.Location
+}
+
+// QueryField represents a field used in a query. It is the realization of a `Field`
+type QueryField struct {
+	Alias           Ident
+	Name            Ident
+	Arguments       ArgumentList
+	Directives      DirectiveList
 	Selections      []Selection
 	SelectionSetLoc errors.Location
 }
