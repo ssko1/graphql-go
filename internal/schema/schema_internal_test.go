@@ -5,25 +5,26 @@ import (
 
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 func TestParseInterfaceDef(t *testing.T) {
 	type testCase struct {
 		description string
 		definition  string
-		expected    *Interface
+		expected    *types.Interface
 		err         *errors.QueryError
 	}
 
 	tests := []testCase{{
 		description: "Parses simple interface",
 		definition:  "Greeting { field: String }",
-		expected:    &Interface{Name: "Greeting", Fields: []*Field{{Name: "field"}}},
+		expected:    &types.Interface{Name: "Greeting", Fields: types.FieldDefinition{&types.Field{Name: types.Ident{Name: "field"}}}},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			var actual *Interface
+			var actual *types.Interface
 			lex := setup(t, test.definition)
 
 			parse := func() { actual = parseInterfaceDef(lex) }
@@ -41,31 +42,31 @@ func TestParseObjectDef(t *testing.T) {
 	type testCase struct {
 		description string
 		definition  string
-		expected    *Object
+		expected    *types.Object
 		err         *errors.QueryError
 	}
 
 	tests := []testCase{{
 		description: "Parses type inheriting single interface",
 		definition:  "Hello implements World { field: String }",
-		expected:    &Object{Name: "Hello", interfaceNames: []string{"World"}},
+		expected:    &types.Object{Name: "Hello", InterfaceNames: []string{"World"}},
 	}, {
 		description: "Parses type inheriting multiple interfaces",
 		definition:  "Hello implements Wo & rld { field: String }",
-		expected:    &Object{Name: "Hello", interfaceNames: []string{"Wo", "rld"}},
+		expected:    &types.Object{Name: "Hello", InterfaceNames: []string{"Wo", "rld"}},
 	}, {
 		description: "Parses type inheriting multiple interfaces with leading ampersand",
 		definition:  "Hello implements & Wo & rld { field: String }",
-		expected:    &Object{Name: "Hello", interfaceNames: []string{"Wo", "rld"}},
+		expected:    &types.Object{Name: "Hello", InterfaceNames: []string{"Wo", "rld"}},
 	}, {
 		description: "Allows legacy SDL interfaces",
 		definition:  "Hello implements Wo, rld { field: String }",
-		expected:    &Object{Name: "Hello", interfaceNames: []string{"Wo", "rld"}},
+		expected:    &types.Object{Name: "Hello", InterfaceNames: []string{"Wo", "rld"}},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			var actual *Object
+			var actual *types.Object
 			lex := setup(t, test.definition)
 
 			parse := func() { actual = parseObjectDef(lex) }
@@ -95,7 +96,7 @@ func compareErrors(t *testing.T, expected, actual *errors.QueryError) {
 	}
 }
 
-func compareInterfaces(t *testing.T, expected, actual *Interface) {
+func compareInterfaces(t *testing.T, expected, actual *types.Interface) {
 	t.Helper()
 
 	// TODO: We can probably extract this switch statement into its own function.
@@ -123,7 +124,7 @@ func compareInterfaces(t *testing.T, expected, actual *Interface) {
 	}
 }
 
-func compareObjects(t *testing.T, expected, actual *Object) {
+func compareObjects(t *testing.T, expected, actual *types.Object) {
 	t.Helper()
 
 	switch {
@@ -139,16 +140,16 @@ func compareObjects(t *testing.T, expected, actual *Object) {
 		t.Errorf("wrong object name: want %q, got %q", expected.Name, actual.Name)
 	}
 
-	if len(expected.interfaceNames) != len(actual.interfaceNames) {
+	if len(expected.InterfaceNames) != len(actual.InterfaceNames) {
 		t.Fatalf(
 			"wrong number of interface names: want %s, got %s",
-			expected.interfaceNames,
-			actual.interfaceNames,
+			expected.InterfaceNames,
+			actual.InterfaceNames,
 		)
 	}
 
-	for i, expectedName := range expected.interfaceNames {
-		actualName := actual.interfaceNames[i]
+	for i, expectedName := range expected.InterfaceNames {
+		actualName := actual.InterfaceNames[i]
 		if expectedName != actualName {
 			t.Errorf("wrong interface name: want %q, got %q", expectedName, actualName)
 		}

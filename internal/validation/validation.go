@@ -10,11 +10,12 @@ import (
 
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
+	"github.com/graph-gophers/graphql-go/internal/query"
 	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/types"
 )
 
-type varSet map[*common.InputValue]struct{}
+type varSet map[*types.InputValue]struct{}
 
 type selectionPair struct{ a, b types.Selection }
 
@@ -114,9 +115,9 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 
 		var entryPoint schema.NamedType
 		switch op.Type {
-		case types.Query:
+		case query.Query:
 			entryPoint = s.EntryPoints["query"]
-		case types.Mutation:
+		case query.Mutation:
 			entryPoint = s.EntryPoints["mutation"]
 		case query.Subscription:
 			entryPoint = s.EntryPoints["subscription"]
@@ -126,7 +127,7 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 
 		validateSelectionSet(opc, op.Selections, entryPoint)
 
-		fragUsed := make(map[*query.FragmentDecl]struct{})
+		fragUsed := make(map[*types.FragmentDecl]struct{})
 		markUsedFragments(c, op.Selections, fragUsed)
 		for frag := range fragUsed {
 			fragUsedBy[frag] = append(fragUsedBy[frag], op)
@@ -134,7 +135,7 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 	}
 
 	fragNames := make(nameSet)
-	fragVisited := make(map[*query.FragmentDecl]struct{})
+	fragVisited := make(map[*types.FragmentDecl]struct{})
 	for _, frag := range doc.Fragments {
 		opc := &opContext{c, fragUsedBy[frag]}
 
@@ -179,7 +180,7 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 	return c.errs
 }
 
-func validateValue(c *opContext, v *common.InputValue, val interface{}, t common.Type) {
+func validateValue(c *opContext, v *types.InputValue, val interface{}, t common.Type) {
 	switch t := t.(type) {
 	case *common.NonNull:
 		if val == nil {
@@ -243,18 +244,18 @@ func validateMaxDepth(c *opContext, sels []types.Selection, depth int) bool {
 
 	for _, sel := range sels {
 		switch sel := sel.(type) {
-		case *query.Field:
+		case *types.Field:
 			if depth > c.maxDepth {
 				exceededMaxDepth = true
 				c.addErr(sel.Alias.Loc, "MaxDepthExceeded", "Field %q has depth %d that exceeds max depth %d", sel.Name.Name, depth, c.maxDepth)
 				continue
 			}
 			exceededMaxDepth = exceededMaxDepth || validateMaxDepth(c, sel.Selections, depth+1)
-		case *query.InlineFragment:
+		case *types.InlineFragment:
 			// Depth is not checked because inline fragments resolve to other fields which are checked.
 			// Depth is not incremented because inline fragments have the same depth as neighboring fields
 			exceededMaxDepth = exceededMaxDepth || validateMaxDepth(c, sel.Selections, depth)
-		case *query.FragmentSpread:
+		case *types.FragmentSpread:
 			// Depth is not checked because fragments resolve to other fields which are checked.
 			frag := c.doc.Fragments.Get(sel.Name.Name)
 			if frag == nil {
@@ -282,9 +283,9 @@ func validateSelectionSet(c *opContext, sels []types.Selection, t schema.NamedTy
 	}
 }
 
-func validateSelection(c *opContext, sel query.Selection, t schema.NamedType) {
+func validateSelection(c *opContext, sel types.Selection, t schema.NamedType) {
 	switch sel := sel.(type) {
-	case *query.Field:
+	case *types.Field:
 		validateDirectives(c, "FIELD", sel.Directives)
 
 		fieldName := sel.Name.Name
@@ -304,8 +305,8 @@ func validateSelection(c *opContext, sel query.Selection, t schema.NamedType) {
 			f = &schema.Field{
 				Name: "__type",
 				Args: types.InputValueList{
-					&common.InputValue{
-						Name: common.Ident{Name: "name"},
+					&types.InputValue{
+						Name: types.Ident{Name: "name"},
 						Type: &common.NonNull{OfType: c.schema.Types["String"]},
 					},
 				},
@@ -343,7 +344,7 @@ func validateSelection(c *opContext, sel query.Selection, t schema.NamedType) {
 			validateSelectionSet(c, sel.Selections, unwrapType(ft))
 		}
 
-	case *query.InlineFragment:
+	case *types.InlineFragment:
 		validateDirectives(c, "INLINE_FRAGMENT", sel.Directives)
 		if sel.On.Name != "" {
 			fragTyp := unwrapType(resolveType(c.context, &sel.On))
@@ -359,7 +360,7 @@ func validateSelection(c *opContext, sel query.Selection, t schema.NamedType) {
 		}
 		validateSelectionSet(c, sel.Selections, unwrapType(t))
 
-	case *query.FragmentSpread:
+	case *types.FragmentSpread:
 		validateDirectives(c, "FRAGMENT_SPREAD", sel.Directives)
 		frag := c.doc.Fragments.Get(sel.Name.Name)
 		if frag == nil {
@@ -400,7 +401,7 @@ func possibleTypes(t common.Type) []*schema.Object {
 	}
 }
 
-func markUsedFragments(c *context, sels []query.Selection, fragUsed map[*query.FragmentDecl]struct{}) {
+func markUsedFragments(c *context, sels []types.Selection, fragUsed map[*types.FragmentDecl]struct{}) {
 	for _, sel := range sels {
 		switch sel := sel.(type) {
 		case *query.Field:
@@ -430,13 +431,13 @@ func markUsedFragments(c *context, sels []query.Selection, fragUsed map[*query.F
 	}
 }
 
-func detectFragmentCycle(c *context, sels []query.Selection, fragVisited map[*query.FragmentDecl]struct{}, spreadPath []*query.FragmentSpread, spreadPathIndex map[string]int) {
+func detectFragmentCycle(c *context, sels []types.Selection, fragVisited map[*types.FragmentDecl]struct{}, spreadPath []*types.FragmentSpread, spreadPathIndex map[string]int) {
 	for _, sel := range sels {
 		detectFragmentCycleSel(c, sel, fragVisited, spreadPath, spreadPathIndex)
 	}
 }
 
-func detectFragmentCycleSel(c *context, sel query.Selection, fragVisited map[*query.FragmentDecl]struct{}, spreadPath []*query.FragmentSpread, spreadPathIndex map[string]int) {
+func detectFragmentCycleSel(c *context, sel types.Selection, fragVisited map[*types.FragmentDecl]struct{}, spreadPath []*types.FragmentSpread, spreadPathIndex map[string]int) {
 	switch sel := sel.(type) {
 	case *query.Field:
 		if sel.Selections != nil {
@@ -486,7 +487,7 @@ func detectFragmentCycleSel(c *context, sel query.Selection, fragVisited map[*qu
 	}
 }
 
-func (c *context) validateOverlap(a, b query.Selection, reasons *[]string, locs *[]errors.Location) {
+func (c *context) validateOverlap(a, b types.Selection, reasons *[]string, locs *[]errors.Location) {
 	if a == b {
 		return
 	}
@@ -549,7 +550,7 @@ func (c *context) validateOverlap(a, b query.Selection, reasons *[]string, locs 
 	}
 }
 
-func (c *context) validateFieldOverlap(a, b *query.Field) ([]string, []errors.Location) {
+func (c *context) validateFieldOverlap(a, b *types.Field) ([]string, []errors.Location) {
 	if a.Alias.Name != b.Alias.Name {
 		return nil, nil
 	}
@@ -634,7 +635,7 @@ func resolveType(c *context, t common.Type) common.Type {
 	return t2
 }
 
-func validateDirectives(c *opContext, loc string, directives common.DirectiveList) {
+func validateDirectives(c *opContext, loc string, directives types.DirectiveList) {
 	directiveNames := make(nameSet)
 	for _, d := range directives {
 		dirName := d.Name.Name
@@ -670,7 +671,7 @@ func validateDirectives(c *opContext, loc string, directives common.DirectiveLis
 
 type nameSet map[string]errors.Location
 
-func validateName(c *context, set nameSet, name type.Ident, rule string, kind string) {
+func validateName(c *context, set nameSet, name types.Ident, rule string, kind string) {
 	validateNameCustomMsg(c, set, name, rule, func() string {
 		return fmt.Sprintf("There can be only one %s named %q.", kind, name.Name)
 	})
@@ -684,7 +685,7 @@ func validateNameCustomMsg(c *context, set nameSet, name common.Ident, rule stri
 	set[name.Name] = name.Loc
 }
 
-func validateArgumentTypes(c *opContext, args types.ArgumentList, argDecls common.InputValueList, loc errors.Location, owner1, owner2 func() string) {
+func validateArgumentTypes(c *opContext, args types.ArgumentList, argDecls types.InputValueList, loc errors.Location, owner1, owner2 func() string) {
 	for _, selArg := range args {
 		arg := argDecls.Get(selArg.Name.Name)
 		if arg == nil {
@@ -705,7 +706,7 @@ func validateArgumentTypes(c *opContext, args types.ArgumentList, argDecls commo
 	}
 }
 
-func validateArgumentLiterals(c *opContext, args common.ArgumentList) {
+func validateArgumentLiterals(c *opContext, args types.ArgumentList) {
 	argNames := make(nameSet)
 	for _, arg := range args {
 		validateName(c.context, argNames, arg.Name, "UniqueArgumentNames", "argument")

@@ -9,6 +9,7 @@ import (
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/schema"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type packer interface {
@@ -209,7 +210,7 @@ type StructPacker struct {
 }
 
 type structPackerField struct {
-	field       *common.InputValue
+	field       *types.InputValue
 	fieldIndex  []int
 	fieldPacker packer
 }
