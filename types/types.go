@@ -163,8 +163,6 @@ func (a ArgumentsDefinition) Get(name string) *InputValue {
 	return nil
 }
 
-// Field is a conceptual function which yields values.
-// http://facebook.github.io/graphql/draft/#FieldDefinition
 type Field struct {
 	Alias           Ident
 	Name            Ident
@@ -221,13 +219,13 @@ type Argument struct {
 
 type ArgumentList []*Argument
 
-func (l ArgumentList) Get(name string) *Argument {
-	for _, a := range l {
-		if a.Name.Name == name {
-			return a
+func (l ArgumentList) Get(name string) (Literal, bool) {
+	for _, arg := range l {
+		if arg.Name.Name == name {
+			return arg.Value, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 type DirectiveList []*Directive

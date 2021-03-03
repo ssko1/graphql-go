@@ -57,7 +57,7 @@ type FragmentSpread struct {
 	Loc        errors.Location
 }
 
-func (Field) isSelection()          {}
+func (QueryField) isSelection()     {}
 func (InlineFragment) isSelection() {}
 func (FragmentSpread) isSelection() {}
 

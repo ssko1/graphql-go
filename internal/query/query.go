@@ -112,8 +112,8 @@ func parseSelection(l *common.Lexer) types.Selection {
 	return parseFieldDef(l)
 }
 
-func parseFieldDef(l *common.Lexer) *types.FieldDefinition {
-	f := &types.FieldDefinition{}
+func parseFieldDef(l *common.Lexer) *types.QueryField {
+	f := &types.QueryField{}
 	f.Alias = l.ConsumeIdentWithLoc()
 	f.Name = f.Alias
 	if l.Peek() == ':' {
@@ -121,7 +121,7 @@ func parseFieldDef(l *common.Lexer) *types.FieldDefinition {
 		f.Name = l.ConsumeIdentWithLoc()
 	}
 	if l.Peek() == '(' {
-		f.Arguments = common.ParseArgumentsDef(l)
+		f.Arguments = common.ParseArguments(l)
 	}
 	f.Directives = common.ParseDirectives(l)
 	if l.Peek() == '{' {
