@@ -30,7 +30,7 @@ type context struct {
 	errs             []*errors.QueryError
 	opErrs           map[*types.Operation][]*errors.QueryError
 	usedVars         map[*types.Operation]varSet
-	fieldMap         map[*types.Field]fieldInfo
+	fieldMap         map[*types.QueryField]fieldInfo
 	overlapValidated map[selectionPair]struct{}
 	maxDepth         int
 }

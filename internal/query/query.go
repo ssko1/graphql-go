@@ -112,8 +112,8 @@ func parseSelection(l *common.Lexer) types.Selection {
 	return parseFieldDef(l)
 }
 
-func parseFieldDef(l *common.Lexer) *types.Field {
-	f := &types.Field{}
+func parseFieldDef(l *common.Lexer) *types.FieldDefinition {
+	f := &types.FieldDefinition{}
 	f.Alias = l.ConsumeIdentWithLoc()
 	f.Name = f.Alias
 	if l.Peek() == ':' {
