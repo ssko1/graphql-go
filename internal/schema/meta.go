@@ -17,7 +17,7 @@ func newMeta() *types.Schema {
 		Directives:      make(map[string]*types.DirectiveDecl),
 	}
 
-	ParseSchema(s, common.NewLexer(metaSrc, false))
+	parseSchema(s, common.NewLexer(metaSrc, false))
 	return s
 }
 

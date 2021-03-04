@@ -258,29 +258,27 @@ func New() *types.Schema {
 	return s
 }
 
-func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, error) {
+func ParseInto(s *types.Schema, schemaString string, useStringDescriptions bool) error {
 	l := common.NewLexer(schemaString, useStringDescriptions)
-	s := &types.Schema{}
-
-	err := l.CatchSyntaxError(func() { ParseSchema(s, l) })
+	err := l.CatchSyntaxError(func() { parseSchema(s, l) })
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := mergeExtensions(s); err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, t := range s.Types {
 		if err := resolveNamedType(s, t); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	for _, d := range s.Directives {
 		for _, arg := range d.Args {
 			t, err := common.ResolveType(arg.Type, s.Resolve)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			arg.Type = t
 		}
@@ -306,7 +304,7 @@ func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, erro
 		t, ok := s.Types[name]
 		if !ok {
 			if !ok {
-				return nil, errors.Errorf("type %q not found", name)
+				return errors.Errorf("type %q not found", name)
 			}
 		}
 		s.EntryPoints[key] = t
@@ -315,25 +313,25 @@ func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, erro
 	for _, obj := range s.Objects {
 		obj.Interfaces = make([]*types.Interface, len(obj.InterfaceNames))
 		if err := resolveDirectives(s, obj.Directives, "OBJECT"); err != nil {
-			return nil, err
+			return err
 		}
 		for _, field := range obj.Fields {
 			if err := resolveDirectives(s, field.Directives, "FIELD_DEFINITION"); err != nil {
-				return nil, err
+				return err
 			}
 		}
 		for i, intfName := range obj.InterfaceNames {
 			t, ok := s.Types[intfName]
 			if !ok {
-				return nil, errors.Errorf("interface %q not found", intfName)
+				return errors.Errorf("interface %q not found", intfName)
 			}
 			intf, ok := t.(*types.Interface)
 			if !ok {
-				return nil, errors.Errorf("type %q is not an interface", intfName)
+				return errors.Errorf("type %q is not an interface", intfName)
 			}
 			for _, f := range intf.Fields.Names() {
 				if obj.Fields.Get(f) == nil {
-					return nil, errors.Errorf("interface %q expects field %q but %q does not provide it", intfName, f, obj.Name)
+					return errors.Errorf("interface %q expects field %q but %q does not provide it", intfName, f, obj.Name)
 				}
 			}
 			obj.Interfaces[i] = intf
@@ -343,18 +341,18 @@ func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, erro
 
 	for _, union := range s.Unions {
 		if err := resolveDirectives(s, union.Directives, "UNION"); err != nil {
-			return nil, err
+			return err
 		}
 		union.PossibleTypes = make([]*types.Object, len(union.PossibleTypes))
 		for i, object := range union.PossibleTypes {
 			name := object.Name
 			t, ok := s.Types[name]
 			if !ok {
-				return nil, errors.Errorf("object type %q not found", name)
+				return errors.Errorf("object type %q not found", name)
 			}
 			obj, ok := t.(*types.Object)
 			if !ok {
-				return nil, errors.Errorf("type %q is not an object", name)
+				return errors.Errorf("type %q is not an object", name)
 			}
 			union.PossibleTypes[i] = obj
 		}
@@ -362,17 +360,22 @@ func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, erro
 
 	for _, enum := range s.Enums {
 		if err := resolveDirectives(s, enum.Directives, "ENUM"); err != nil {
-			return nil, err
+			return err
 		}
 		for _, value := range enum.Values {
 			if err := resolveDirectives(s, value.Directives, "ENUM_VALUE"); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
-	return s, nil
+	return nil
+}
 
+func ParseSchema(schemaString string, useStringDescriptions bool) (*types.Schema, error) {
+	s := &types.Schema{}
+	err := ParseInto(s, schemaString, useStringDescriptions)
+	return s, err
 }
 
 func mergeExtensions(s *types.Schema) error {
@@ -533,7 +536,7 @@ func resolveInputObject(s *types.Schema, values types.ArgumentsDefinition) error
 	return nil
 }
 
-func ParseSchema(s *types.Schema, l *common.Lexer) {
+func parseSchema(s *types.Schema, l *common.Lexer) {
 	l.ConsumeWhitespace()
 
 	for l.Peek() != scanner.EOF {

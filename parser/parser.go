@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -48,10 +47,7 @@ import (
 // 	// return s.groupByFile()
 // }
 
-func Parse(schemaString string) (*types.Schema, error) {
-	s := &types.Schema{}
-	l := common.NewLexer(schemaString, false)
-	schema.ParseSchema(s, l)
-	// TODO where are the errors
-	return s, nil
+func Parse(schemaString string, useStringDescriptions bool) (*types.Schema, error) {
+	s, err := schema.ParseSchema(schemaString, useStringDescriptions)
+	return s, err
 }

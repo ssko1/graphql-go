@@ -36,7 +36,7 @@ func ParseSchema(schemaString string, resolver interface{}, opts ...SchemaOpt) (
 		opt(s)
 	}
 
-	schema.ParseSchema(s.schema, common.NewLexer(schemaString, s.useStringDescriptions))
+	err := schema.ParseInto(s.schema, schemaString, s.useStringDescriptions)
 	if err := s.validateSchema(); err != nil {
 		return nil, err
 	}
