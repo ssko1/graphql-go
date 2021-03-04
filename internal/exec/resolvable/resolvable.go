@@ -9,11 +9,12 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/exec/packer"
 	"github.com/graph-gophers/graphql-go/internal/schema"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type Schema struct {
 	*Meta
-	schema.Schema
+	types.Schema
 	Query        Resolvable
 	Mutation     Resolvable
 	Subscription Resolvable
@@ -61,7 +62,7 @@ func (*Object) isResolvable() {}
 func (*List) isResolvable()   {}
 func (*Scalar) isResolvable() {}
 
-func ApplyResolver(s *schema.Schema, resolver interface{}) (*Schema, error) {
+func ApplyResolver(s *types.Schema, resolver interface{}) (*Schema, error) {
 	if resolver == nil {
 		return &Schema{Meta: newMeta(s), Schema: *s}, nil
 	}
@@ -103,7 +104,7 @@ func ApplyResolver(s *schema.Schema, resolver interface{}) (*Schema, error) {
 }
 
 type execBuilder struct {
-	schema        *schema.Schema
+	schema        *types.Schema
 	resMap        map[typePair]*resMapEntry
 	packerBuilder *packer.Builder
 }
@@ -118,7 +119,7 @@ type resMapEntry struct {
 	targets []*Resolvable
 }
 
-func newBuilder(s *schema.Schema) *execBuilder {
+func newBuilder(s *types.Schema) *execBuilder {
 	return &execBuilder{
 		schema:        s,
 		resMap:        make(map[typePair]*resMapEntry),

@@ -228,7 +228,24 @@ func (l ArgumentList) Get(name string) (Literal, bool) {
 	return nil, false
 }
 
+func (l ArgumentList) MustGet(name string) Literal {
+	value, ok := l.Get(name)
+	if !ok {
+		panic("argument not found")
+	}
+	return value
+}
+
 type DirectiveList []*Directive
+
+func (l DirectiveList) Get(name string) *Directive {
+	for _, d := range l {
+		if d.Name.Name == name {
+			return d
+		}
+	}
+	return nil
+}
 
 type Ident struct {
 	Name string

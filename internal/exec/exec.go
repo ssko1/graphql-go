@@ -17,6 +17,7 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/log"
 	"github.com/graph-gophers/graphql-go/trace"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type Request struct {
@@ -42,7 +43,7 @@ func makePanicError(value interface{}) *errors.QueryError {
 	return errors.Errorf("panic occurred: %v", value)
 }
 
-func (r *Request) Execute(ctx context.Context, s *resolvable.Schema, op *query.Operation) ([]byte, []*errors.QueryError) {
+func (r *Request) Execute(ctx context.Context, s *resolvable.Schema, op *types.Operation) ([]byte, []*errors.QueryError) {
 	var out bytes.Buffer
 	func() {
 		defer r.handlePanic(ctx)

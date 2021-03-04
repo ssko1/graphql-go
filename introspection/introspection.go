@@ -4,16 +4,15 @@ import (
 	"sort"
 
 	"github.com/graph-gophers/graphql-go/internal/common"
-	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/types"
 )
 
 type Schema struct {
-	schema *schema.Schema
+	schema *types.Schema
 }
 
 // WrapSchema is only used internally.
-func WrapSchema(schema *schema.Schema) *Schema {
+func WrapSchema(schema *types.Schema) *Schema {
 	return &Schema{schema}
 }
 
@@ -83,7 +82,7 @@ func (r *Type) Kind() string {
 }
 
 func (r *Type) Name() *string {
-	if named, ok := r.typ.(schema.NamedType); ok {
+	if named, ok := r.typ.(types.NamedType); ok {
 		name := named.TypeName()
 		return &name
 	}
@@ -91,7 +90,7 @@ func (r *Type) Name() *string {
 }
 
 func (r *Type) Description() *string {
-	if named, ok := r.typ.(schema.NamedType); ok {
+	if named, ok := r.typ.(types.NamedType); ok {
 		desc := named.Description()
 		if desc == "" {
 			return nil
@@ -102,11 +101,11 @@ func (r *Type) Description() *string {
 }
 
 func (r *Type) Fields(args *struct{ IncludeDeprecated bool }) *[]*Field {
-	var fields schema.FieldList
+	var fields types.FieldDefinition
 	switch t := r.typ.(type) {
-	case *schema.Object:
+	case *types.Object:
 		fields = t.Fields
-	case *schema.Interface:
+	case *types.Interface:
 		fields = t.Fields
 	default:
 		return nil
@@ -115,14 +114,14 @@ func (r *Type) Fields(args *struct{ IncludeDeprecated bool }) *[]*Field {
 	var l []*Field
 	for _, f := range fields {
 		if d := f.Directives.Get("deprecated"); d == nil || args.IncludeDeprecated {
-			l = append(l, &Field{f})
+			l = append(l, &Field{field: f})
 		}
 	}
 	return &l
 }
 
 func (r *Type) Interfaces() *[]*Type {
-	t, ok := r.typ.(*schema.Object)
+	t, ok := r.typ.(*types.Object)
 	if !ok {
 		return nil
 	}
@@ -135,11 +134,11 @@ func (r *Type) Interfaces() *[]*Type {
 }
 
 func (r *Type) PossibleTypes() *[]*Type {
-	var possibleTypes []*schema.Object
+	var possibleTypes []*types.Object
 	switch t := r.typ.(type) {
-	case *schema.Interface:
+	case *types.Interface:
 		possibleTypes = t.PossibleTypes
-	case *schema.Union:
+	case *types.Union:
 		possibleTypes = t.PossibleTypes
 	default:
 		return nil
@@ -153,7 +152,7 @@ func (r *Type) PossibleTypes() *[]*Type {
 }
 
 func (r *Type) EnumValues(args *struct{ IncludeDeprecated bool }) *[]*EnumValue {
-	t, ok := r.typ.(*schema.Enum)
+	t, ok := r.typ.(*types.Enum)
 	if !ok {
 		return nil
 	}
@@ -192,11 +191,11 @@ func (r *Type) OfType() *Type {
 }
 
 type Field struct {
-	field *schema.Field
+	field *types.Field
 }
 
 func (r *Field) Name() string {
-	return r.field.Name
+	return r.field.Name.Name
 }
 
 func (r *Field) Description() *string {
@@ -207,8 +206,8 @@ func (r *Field) Description() *string {
 }
 
 func (r *Field) Args() []*InputValue {
-	l := make([]*InputValue, len(r.field.Args))
-	for i, v := range r.field.Args {
+	l := make([]*InputValue, len(r.field.Arguments))
+	for i, v := range r.field.Arguments {
 		l[i] = &InputValue{v}
 	}
 	return l
@@ -259,7 +258,7 @@ func (r *InputValue) DefaultValue() *string {
 }
 
 type EnumValue struct {
-	value *schema.EnumValue
+	value *types.EnumValuesDefinition
 }
 
 func (r *EnumValue) Name() string {
@@ -287,7 +286,7 @@ func (r *EnumValue) DeprecationReason() *string {
 }
 
 type Directive struct {
-	directive *schema.DirectiveDecl
+	directive *types.DirectiveDecl
 }
 
 func (r *Directive) Name() string {

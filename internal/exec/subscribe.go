@@ -12,7 +12,7 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/exec/resolvable"
 	"github.com/graph-gophers/graphql-go/internal/exec/selected"
-	"github.com/graph-gophers/graphql-go/internal/query"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 type Response struct {
@@ -20,7 +20,7 @@ type Response struct {
 	Errors []*errors.QueryError
 }
 
-func (r *Request) Subscribe(ctx context.Context, s *resolvable.Schema, op *query.Operation) <-chan *Response {
+func (r *Request) Subscribe(ctx context.Context, s *resolvable.Schema, op *types.Operation) <-chan *Response {
 	var result reflect.Value
 	var f *fieldToExec
 	var err *errors.QueryError

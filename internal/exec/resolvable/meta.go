@@ -7,6 +7,7 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/introspection"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 // Meta defines the details of the metadata schema for introspection.
@@ -18,7 +19,7 @@ type Meta struct {
 	Type          *Object
 }
 
-func newMeta(s *schema.Schema) *Meta {
+func newMeta(s *types.Schema) *Meta {
 	var err error
 	b := newBuilder(s)
 
