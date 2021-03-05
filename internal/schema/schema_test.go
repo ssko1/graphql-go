@@ -856,7 +856,8 @@ Second line of the description.
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if s, err := schema.Parse(test.sdl, test.useStringDescriptions); err != nil {
+			s, err := schema.ParseSchema(test.sdl, test.useStringDescriptions)
+			if err != nil {
 				if test.validateError == nil {
 					t.Fatal(err)
 				}

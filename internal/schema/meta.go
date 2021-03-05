@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -17,7 +19,10 @@ func newMeta() *types.Schema {
 		Directives:      make(map[string]*types.DirectiveDecl),
 	}
 
+	fmt.Printf("yo\n")
+
 	parseSchema(s, common.NewLexer(metaSrc, false))
+	fmt.Printf("sup\n")
 	return s
 }
 

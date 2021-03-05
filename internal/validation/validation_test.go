@@ -1,6 +1,7 @@
 package validation_test
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"sort"
@@ -40,14 +41,15 @@ func TestValidate(t *testing.T) {
 
 	schemas := make([]*types.Schema, len(testData.Schemas))
 	for i, schemaStr := range testData.Schemas {
-		schemas[i] = schema.New()
-		if err := schemas[i].Parse(schemaStr, false); err != nil {
+		err := schema.ParseInto(schemas[i], schemaStr, false)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	for _, test := range testData.Tests {
 		t.Run(test.Name, func(t *testing.T) {
+
 			d, err := query.Parse(test.Query)
 			if err != nil {
 				t.Fatal(err)
