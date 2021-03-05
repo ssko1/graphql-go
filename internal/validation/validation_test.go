@@ -1,7 +1,6 @@
 package validation_test
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"sort"
@@ -49,7 +48,6 @@ func TestValidate(t *testing.T) {
 
 	for _, test := range testData.Tests {
 		t.Run(test.Name, func(t *testing.T) {
-
 			d, err := query.Parse(test.Query)
 			if err != nil {
 				t.Fatal(err)

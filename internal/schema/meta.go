@@ -20,7 +20,6 @@ func newMeta() *types.Schema {
 	}
 
 	fmt.Printf("yo\n")
-
 	parseSchema(s, common.NewLexer(metaSrc, false))
 	fmt.Printf("sup\n")
 	return s
