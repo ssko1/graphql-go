@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/introspection"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -40,15 +39,19 @@ func newMeta(s *types.Schema) *Meta {
 
 	fieldTypename := Field{
 		Field: types.Field{
-			Name: types.Ident{Name: "__typename"},
-			Type: &common.NonNull{OfType: s.Types["String"]},
+			Name: types.Ident{
+				Name: "__typename",
+			},
+			Type: &types.NonNull{OfType: s.Types["String"]},
 		},
 		TraceLabel: fmt.Sprintf("GraphQL field: __typename"),
 	}
 
 	fieldSchema := Field{
 		Field: types.Field{
-			Name: types.Ident{Name: "__schema"},
+			Name: types.Ident{
+				Name: "__schema",
+			},
 			Type: s.Types["__Schema"],
 		},
 		TraceLabel: fmt.Sprintf("GraphQL field: __schema"),
@@ -56,7 +59,9 @@ func newMeta(s *types.Schema) *Meta {
 
 	fieldType := Field{
 		Field: types.Field{
-			Name: types.Ident{Name: "__type"},
+			Name: types.Ident{
+				Name: "__type",
+			},
 			Type: s.Types["__Type"],
 		},
 		TraceLabel: fmt.Sprintf("GraphQL field: __type"),

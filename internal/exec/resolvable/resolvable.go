@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/exec/packer"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -109,7 +108,7 @@ type execBuilder struct {
 }
 
 type typePair struct {
-	graphQLType  common.Type
+	graphQLType  types.Type
 	resolverType reflect.Type
 }
 
@@ -136,7 +135,7 @@ func (b *execBuilder) finish() error {
 	return b.packerBuilder.Finish()
 }
 
-func (b *execBuilder) assignExec(target *Resolvable, t common.Type, resolverType reflect.Type) error {
+func (b *execBuilder) assignExec(target *Resolvable, t types.Type, resolverType reflect.Type) error {
 	k := typePair{t, resolverType}
 	ref, ok := b.resMap[k]
 	if !ok {
@@ -152,7 +151,7 @@ func (b *execBuilder) assignExec(target *Resolvable, t common.Type, resolverType
 	return nil
 }
 
-func (b *execBuilder) makeExec(t common.Type, resolverType reflect.Type) (Resolvable, error) {
+func (b *execBuilder) makeExec(t types.Type, resolverType reflect.Type) (Resolvable, error) {
 	var nonNull bool
 	t, nonNull = unwrapNonNull(t)
 
@@ -427,8 +426,8 @@ func fieldCount(t reflect.Type, count map[string]int) map[string]int {
 	return count
 }
 
-func unwrapNonNull(t common.Type) (common.Type, bool) {
-	if nn, ok := t.(*common.NonNull); ok {
+func unwrapNonNull(t types.Type) (types.Type, bool) {
+	if nn, ok := t.(*types.NonNull); ok {
 		return nn.OfType, true
 	}
 	return t, false

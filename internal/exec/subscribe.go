@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/graph-gophers/graphql-go/errors"
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/exec/resolvable"
 	"github.com/graph-gophers/graphql-go/internal/exec/selected"
 	"github.com/graph-gophers/graphql-go/types"
@@ -71,7 +70,7 @@ func (r *Request) Subscribe(ctx context.Context, s *resolvable.Schema, op *types
 	}
 
 	if err != nil {
-		if _, nonNullChild := f.field.Type.(*common.NonNull); nonNullChild {
+		if _, nonNullChild := f.field.Type.(*types.NonNull); nonNullChild {
 			return sendAndReturnClosed(&Response{Errors: []*errors.QueryError{err}})
 		}
 		return sendAndReturnClosed(&Response{Data: []byte(fmt.Sprintf(`{"%s":null}`, f.field.Alias)), Errors: []*errors.QueryError{err}})
@@ -142,7 +141,7 @@ func (r *Request) Subscribe(ctx context.Context, s *resolvable.Schema, op *types
 						subR.execSelectionSet(subCtx, f.sels, f.field.Type, &pathSegment{nil, f.field.Alias}, s, resp, &buf)
 
 						propagateChildError := false
-						if _, nonNullChild := f.field.Type.(*common.NonNull); nonNullChild && resolvedToNull(&buf) {
+						if _, nonNullChild := f.field.Type.(*types.NonNull); nonNullChild && resolvedToNull(&buf) {
 							propagateChildError = true
 						}
 

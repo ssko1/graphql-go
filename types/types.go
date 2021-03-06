@@ -185,10 +185,10 @@ type QueryField struct {
 }
 
 // -type Field struct {
-// 	-	Alias           common.Ident
-// 	-	Name            common.Ident
-// 	-	Arguments       common.ArgumentList
-// 	-	Directives      common.DirectiveList
+// 	-	Alias           types.Ident
+// 	-	Name            types.Ident
+// 	-	Arguments       types.ArgumentList
+// 	-	Directives      types.DirectiveList
 // 	-	Selections      []Selection
 // 	-	SelectionSetLoc errors.Location
 // 	-}

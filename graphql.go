@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/graph-gophers/graphql-go/errors"
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/exec"
 	"github.com/graph-gophers/graphql-go/internal/exec/resolvable"
 	"github.com/graph-gophers/graphql-go/internal/exec/selected"
@@ -236,7 +235,7 @@ func (s *Schema) exec(ctx context.Context, queryString string, operationName str
 	}
 	varTypes := make(map[string]*introspection.Type)
 	for _, v := range op.Vars {
-		t, err := common.ResolveType(v.Type, s.schema.Resolve)
+		t, err := types.ResolveType(v.Type, s.schema.Resolve)
 		if err != nil {
 			return &Response{Errors: []*errors.QueryError{err}}
 		}

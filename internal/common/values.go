@@ -1,22 +1,8 @@
 package common
 
 import (
-	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/types"
 )
-
-// http://facebook.github.io/graphql/draft/#InputValueDefinition
-type InputValue struct {
-	Name       Ident
-	Type       Type
-	Default    Literal
-	Desc       string
-	Directives DirectiveList
-	Loc        errors.Location
-	TypeLoc    errors.Location
-}
-
-type OperationType string
 
 func ParseInputValue(l *Lexer) *types.InputValue {
 	p := &types.InputValue{}
@@ -32,30 +18,6 @@ func ParseInputValue(l *Lexer) *types.InputValue {
 	}
 	p.Directives = ParseDirectives(l)
 	return p
-}
-
-type Argument struct {
-	Name  Ident
-	Value Literal
-}
-
-type ArgumentList []Argument
-
-func (l ArgumentList) Get(name string) (Literal, bool) {
-	for _, arg := range l {
-		if arg.Name.Name == name {
-			return arg.Value, true
-		}
-	}
-	return nil, false
-}
-
-func (l ArgumentList) MustGet(name string) Literal {
-	value, ok := l.Get(name)
-	if !ok {
-		panic("argument not found")
-	}
-	return value
 }
 
 func ParseArguments(l *Lexer) types.ArgumentList {

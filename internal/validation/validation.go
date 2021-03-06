@@ -9,7 +9,6 @@ import (
 	"text/scanner"
 
 	"github.com/graph-gophers/graphql-go/errors"
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/query"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -17,6 +16,8 @@ import (
 type varSet map[*types.InputValue]struct{}
 
 type selectionPair struct{ a, b types.Selection }
+
+type nameSet map[string]errors.Location
 
 type fieldInfo struct {
 	sf     *types.Field
@@ -101,7 +102,7 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 				validateLiteral(opc, v.Default)
 
 				if t != nil {
-					if nn, ok := t.(*common.NonNull); ok {
+					if nn, ok := t.(*types.NonNull); ok {
 						c.addErr(v.Default.Location(), "DefaultValuesOfCorrectType", "Variable %q of type %q is required and will not use the default value. Perhaps you meant to use type %q.", "$"+v.Name.Name, t, nn.OfType)
 					}
 
@@ -179,15 +180,15 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 	return c.errs
 }
 
-func validateValue(c *opContext, v *types.InputValue, val interface{}, t common.Type) {
+func validateValue(c *opContext, v *types.InputValue, val interface{}, t types.Type) {
 	switch t := t.(type) {
-	case *common.NonNull:
+	case *types.NonNull:
 		if val == nil {
 			c.addErr(v.Loc, "VariablesOfCorrectType", "Variable \"%s\" has invalid value null.\nExpected type \"%s\", found null.", v.Name.Name, t)
 			return
 		}
 		validateValue(c, v, val, t.OfType)
-	case *common.List:
+	case *types.List:
 		if val == nil {
 			return
 		}
@@ -306,7 +307,7 @@ func validateSelection(c *opContext, sel types.Selection, t types.NamedType) {
 				Arguments: types.ArgumentsDefinition{
 					&types.InputValue{
 						Name: types.Ident{Name: "name"},
-						Type: &common.NonNull{OfType: c.schema.Types["String"]},
+						Type: &types.NonNull{OfType: c.schema.Types["String"]},
 					},
 				},
 				Type: c.schema.Types["__Type"],
@@ -328,7 +329,7 @@ func validateSelection(c *opContext, sel types.Selection, t types.NamedType) {
 			)
 		}
 
-		var ft common.Type
+		var ft types.Type
 		if f != nil {
 			ft = f.Type
 			sf := hasSubfields(ft)
@@ -376,7 +377,7 @@ func validateSelection(c *opContext, sel types.Selection, t types.NamedType) {
 	}
 }
 
-func compatible(a, b common.Type) bool {
+func compatible(a, b types.Type) bool {
 	for _, pta := range possibleTypes(a) {
 		for _, ptb := range possibleTypes(b) {
 			if pta == ptb {
@@ -387,7 +388,7 @@ func compatible(a, b common.Type) bool {
 	return false
 }
 
-func possibleTypes(t common.Type) []*types.Object {
+func possibleTypes(t types.Type) []*types.Object {
 	switch t := t.(type) {
 	case *types.Object:
 		return []*types.Object{t}
@@ -597,7 +598,7 @@ func argumentsConflict(a, b types.ArgumentList) bool {
 	return false
 }
 
-func fields(t common.Type) types.FieldDefinition {
+func fields(t types.Type) types.FieldDefinition {
 	switch t := t.(type) {
 	case *types.Object:
 		return t.Fields
@@ -608,7 +609,7 @@ func fields(t common.Type) types.FieldDefinition {
 	}
 }
 
-func unwrapType(t common.Type) types.NamedType {
+func unwrapType(t types.Type) types.NamedType {
 	if t == nil {
 		return nil
 	}
@@ -616,9 +617,9 @@ func unwrapType(t common.Type) types.NamedType {
 		switch t2 := t.(type) {
 		case types.NamedType:
 			return t2
-		case *common.List:
+		case *types.List:
 			t = t2.OfType
-		case *common.NonNull:
+		case *types.NonNull:
 			t = t2.OfType
 		default:
 			panic("unreachable")
@@ -626,8 +627,8 @@ func unwrapType(t common.Type) types.NamedType {
 	}
 }
 
-func resolveType(c *context, t common.Type) common.Type {
-	t2, err := common.ResolveType(t, c.schema.Resolve)
+func resolveType(c *context, t types.Type) types.Type {
+	t2, err := types.ResolveType(t, c.schema.Resolve)
 	if err != nil {
 		c.errs = append(c.errs, err)
 	}
@@ -667,8 +668,6 @@ func validateDirectives(c *opContext, loc string, directives types.DirectiveList
 		)
 	}
 }
-
-type nameSet map[string]errors.Location
 
 func validateName(c *context, set nameSet, name types.Ident, rule string, kind string) {
 	validateNameCustomMsg(c, set, name, rule, func() string {
@@ -924,8 +923,8 @@ func typesCompatible(a, b types.Type) bool {
 		return aIsList && bIsList && typesCompatible(al.OfType, bl.OfType)
 	}
 
-	ann, aIsNN := a.(*common.NonNull)
-	bnn, bIsNN := b.(*common.NonNull)
+	ann, aIsNN := a.(*types.NonNull)
+	bnn, bIsNN := b.(*types.NonNull)
 	if aIsNN || bIsNN {
 		return aIsNN && bIsNN && typesCompatible(ann.OfType, bnn.OfType)
 	}
@@ -937,13 +936,13 @@ func typesCompatible(a, b types.Type) bool {
 	return true
 }
 
-func typeCanBeUsedAs(t, as common.Type) bool {
-	nnT, okT := t.(*common.NonNull)
+func typeCanBeUsedAs(t, as types.Type) bool {
+	nnT, okT := t.(*types.NonNull)
 	if okT {
 		t = nnT.OfType
 	}
 
-	nnAs, okAs := as.(*common.NonNull)
+	nnAs, okAs := as.(*types.NonNull)
 	if okAs {
 		as = nnAs.OfType
 		if !okT {
@@ -955,8 +954,8 @@ func typeCanBeUsedAs(t, as common.Type) bool {
 		return true
 	}
 
-	if lT, ok := t.(*common.List); ok {
-		if lAs, ok := as.(*common.List); ok {
+	if lT, ok := t.(*types.List); ok {
+		if lAs, ok := as.(*types.List); ok {
 			return typeCanBeUsedAs(lT.OfType, lAs.OfType)
 		}
 	}

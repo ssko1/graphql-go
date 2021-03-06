@@ -6,13 +6,13 @@ import (
 	"reflect"
 
 	qerrors "github.com/graph-gophers/graphql-go/errors"
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/exec"
 	"github.com/graph-gophers/graphql-go/internal/exec/resolvable"
 	"github.com/graph-gophers/graphql-go/internal/exec/selected"
 	"github.com/graph-gophers/graphql-go/internal/query"
 	"github.com/graph-gophers/graphql-go/internal/validation"
 	"github.com/graph-gophers/graphql-go/introspection"
+	"github.com/graph-gophers/graphql-go/types"
 )
 
 // Subscribe returns a response channel for the given subscription with the schema's
@@ -61,7 +61,7 @@ func (s *Schema) subscribe(ctx context.Context, queryString string, operationNam
 	}
 	varTypes := make(map[string]*introspection.Type)
 	for _, v := range op.Vars {
-		t, err := common.ResolveType(v.Type, s.schema.Resolve)
+		t, err := types.ResolveType(v.Type, s.schema.Resolve)
 		if err != nil {
 			return sendAndReturnClosed(&Response{Errors: []*qerrors.QueryError{err}})
 		}

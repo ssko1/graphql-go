@@ -44,7 +44,7 @@ func ParseInto(s *types.Schema, schemaString string, useStringDescriptions bool)
 	}
 	for _, d := range s.Directives {
 		for _, arg := range d.Args {
-			t, err := common.ResolveType(arg.Type, s.Resolve)
+			t, err := types.ResolveType(arg.Type, s.Resolve)
 			if err != nil {
 				return err
 			}
@@ -251,7 +251,7 @@ func resolveNamedType(s *types.Schema, t types.NamedType) error {
 }
 
 func resolveField(s *types.Schema, f *types.Field) error {
-	t, err := common.ResolveType(f.Type, s.Resolve)
+	t, err := types.ResolveType(f.Type, s.Resolve)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func resolveDirectives(s *types.Schema, directives types.DirectiveList, loc stri
 
 func resolveInputObject(s *types.Schema, values types.ArgumentsDefinition) error {
 	for _, v := range values {
-		t, err := common.ResolveType(v.Type, s.Resolve)
+		t, err := types.ResolveType(v.Type, s.Resolve)
 		if err != nil {
 			return err
 		}

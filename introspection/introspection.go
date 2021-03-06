@@ -3,7 +3,6 @@ package introspection
 import (
 	"sort"
 
-	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/types"
 )
 
@@ -69,11 +68,11 @@ func (r *Schema) SubscriptionType() *Type {
 }
 
 type Type struct {
-	typ common.Type
+	typ types.Type
 }
 
 // WrapType is only used internally.
-func WrapType(typ common.Type) *Type {
+func WrapType(typ types.Type) *Type {
 	return &Type{typ}
 }
 
