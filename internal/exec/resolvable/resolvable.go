@@ -356,7 +356,7 @@ func (b *execBuilder) makeFieldExec(typeName string, f *types.Field, m reflect.M
 		HasContext:  hasContext,
 		ArgsPacker:  argsPacker,
 		HasError:    hasError,
-		TraceLabel:  fmt.Sprintf("GraphQL field: %s.%s", typeName, f.Name),
+		TraceLabel:  fmt.Sprintf("GraphQL field: %s.%s", typeName, f.Name.Name),
 	}
 
 	var out reflect.Type
