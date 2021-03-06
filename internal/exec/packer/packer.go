@@ -8,7 +8,6 @@ import (
 
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
-	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/types"
 )
 
@@ -84,7 +83,7 @@ func (b *Builder) makePacker(schemaType common.Type, reflectType reflect.Type) (
 		}
 		elemType := reflectType.Elem()
 		addPtr := true
-		if _, ok := t.(*schema.InputObject); ok {
+		if _, ok := t.(*types.InputObject); ok {
 			elemType = reflectType // keep pointer for input objects
 			addPtr = false
 		}
@@ -113,12 +112,12 @@ func (b *Builder) makeNonNullPacker(schemaType common.Type, reflectType reflect.
 	}
 
 	switch t := schemaType.(type) {
-	case *schema.Scalar:
+	case *types.Scalar:
 		return &ValuePacker{
 			ValueType: reflectType,
 		}, nil
 
-	case *schema.Enum:
+	case *types.Enum:
 		if reflectType.Kind() != reflect.String {
 			return nil, fmt.Errorf("wrong type, expected %s", reflect.String)
 		}
@@ -126,7 +125,7 @@ func (b *Builder) makeNonNullPacker(schemaType common.Type, reflectType reflect.
 			ValueType: reflectType,
 		}, nil
 
-	case *schema.InputObject:
+	case *types.InputObject:
 		e, err := b.MakeStructPacker(t.Values, reflectType)
 		if err != nil {
 			return nil, err
@@ -145,7 +144,7 @@ func (b *Builder) makeNonNullPacker(schemaType common.Type, reflectType reflect.
 		}
 		return p, nil
 
-	case *schema.Object, *schema.Interface, *schema.Union:
+	case *types.Object, *types.Interface, *types.Union:
 		return nil, fmt.Errorf("type of kind %s can not be used as input", t.Kind())
 
 	default:
@@ -153,7 +152,7 @@ func (b *Builder) makeNonNullPacker(schemaType common.Type, reflectType reflect.
 	}
 }
 
-func (b *Builder) MakeStructPacker(values types.InputValueList, typ reflect.Type) (*StructPacker, error) {
+func (b *Builder) MakeStructPacker(values types.ArgumentsDefinition, typ reflect.Type) (*StructPacker, error) {
 	structType := typ
 	usePtr := false
 	if typ.Kind() == reflect.Ptr {

@@ -176,7 +176,7 @@ func (l *Lexer) ConsumeLiteral() *BasicLit {
 }
 
 func (l *Lexer) ConsumeToken(expected rune) {
-	fmt.Printf("consumeToken\n")
+	// fmt.Printf("consumeToken\n")
 
 	if l.next != expected {
 		l.SyntaxError(fmt.Sprintf("unexpected %q, expecting %s", l.sc.TokenText(), scanner.TokenString(expected)))

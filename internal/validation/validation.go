@@ -11,7 +11,6 @@ import (
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/internal/common"
 	"github.com/graph-gophers/graphql-go/internal/query"
-	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/types"
 )
 
@@ -21,7 +20,7 @@ type selectionPair struct{ a, b types.Selection }
 
 type fieldInfo struct {
 	sf     *types.Field
-	parent schema.NamedType
+	parent types.NamedType
 }
 
 type context struct {
@@ -113,7 +112,7 @@ func Validate(s *types.Schema, doc *types.Document, variables map[string]interfa
 			}
 		}
 
-		var entryPoint schema.NamedType
+		var entryPoint types.NamedType
 		switch op.Type {
 		case query.Query:
 			entryPoint = s.EntryPoints["query"]
@@ -201,7 +200,7 @@ func validateValue(c *opContext, v *types.InputValue, val interface{}, t common.
 		for _, elem := range vv {
 			validateValue(c, v, elem, t.OfType)
 		}
-	case *schema.Enum:
+	case *types.Enum:
 		if val == nil {
 			return
 		}
@@ -216,7 +215,7 @@ func validateValue(c *opContext, v *types.InputValue, val interface{}, t common.
 			}
 		}
 		c.addErr(v.Loc, "VariablesOfCorrectType", "Variable \"%s\" has invalid value %s.\nExpected type \"%s\", found %s.", v.Name.Name, e, t, e)
-	case *schema.InputObject:
+	case *types.InputObject:
 		if val == nil {
 			return
 		}
@@ -271,7 +270,7 @@ func validateMaxDepth(c *opContext, sels []types.Selection, depth int) bool {
 	return exceededMaxDepth
 }
 
-func validateSelectionSet(c *opContext, sels []types.Selection, t schema.NamedType) {
+func validateSelectionSet(c *opContext, sels []types.Selection, t types.NamedType) {
 	for _, sel := range sels {
 		validateSelection(c, sel, t)
 	}
@@ -283,7 +282,7 @@ func validateSelectionSet(c *opContext, sels []types.Selection, t schema.NamedTy
 	}
 }
 
-func validateSelection(c *opContext, sel types.Selection, t schema.NamedType) {
+func validateSelection(c *opContext, sel types.Selection, t types.NamedType) {
 	switch sel := sel.(type) {
 	case *types.QueryField:
 		validateDirectives(c, "FIELD", sel.Directives)
@@ -388,13 +387,13 @@ func compatible(a, b common.Type) bool {
 	return false
 }
 
-func possibleTypes(t common.Type) []*schema.Object {
+func possibleTypes(t common.Type) []*types.Object {
 	switch t := t.(type) {
-	case *schema.Object:
-		return []*schema.Object{t}
-	case *schema.Interface:
+	case *types.Object:
+		return []*types.Object{t}
+	case *types.Interface:
 		return t.PossibleTypes
-	case *schema.Union:
+	case *types.Union:
 		return t.PossibleTypes
 	default:
 		return nil
@@ -609,13 +608,13 @@ func fields(t common.Type) types.FieldDefinition {
 	}
 }
 
-func unwrapType(t common.Type) schema.NamedType {
+func unwrapType(t common.Type) types.NamedType {
 	if t == nil {
 		return nil
 	}
 	for {
 		switch t2 := t.(type) {
-		case schema.NamedType:
+		case types.NamedType:
 			return t2
 		case *common.List:
 			t = t2.OfType
@@ -774,7 +773,7 @@ func validateValueType(c *opContext, v types.Literal, t types.Type) (bool, strin
 	}
 
 	switch t := t.(type) {
-	case *schema.Scalar, *schema.Enum:
+	case *types.Scalar, *types.Enum:
 		if lit, ok := v.(*types.BasicLit); ok {
 			if validateBasicLit(lit, t) {
 				return true, ""
@@ -793,7 +792,7 @@ func validateValueType(c *opContext, v types.Literal, t types.Type) (bool, strin
 		}
 		return true, ""
 
-	case *schema.InputObject:
+	case *types.InputObject:
 		v, ok := v.(*types.ObjectLit)
 		if !ok {
 			return false, fmt.Sprintf("Expected %q, found not an object.", t)
@@ -830,7 +829,7 @@ func validateValueType(c *opContext, v types.Literal, t types.Type) (bool, strin
 
 func validateBasicLit(v *types.BasicLit, t types.Type) bool {
 	switch t := t.(type) {
-	case *schema.Scalar:
+	case *types.Scalar:
 		switch t.Name {
 		case "Int":
 			if v.Type != scanner.Int {
@@ -854,7 +853,7 @@ func validateBasicLit(v *types.BasicLit, t types.Type) bool {
 			return true
 		}
 
-	case *schema.Enum:
+	case *types.Enum:
 		if v.Type != scanner.Ident {
 			return false
 		}
@@ -871,7 +870,7 @@ func validateBasicLit(v *types.BasicLit, t types.Type) bool {
 
 func canBeFragment(t types.Type) bool {
 	switch t.(type) {
-	case *schema.Object, *schema.Interface, *schema.Union:
+	case *types.Object, *types.Interface, *types.Union:
 		return true
 	default:
 		return false
@@ -880,7 +879,7 @@ func canBeFragment(t types.Type) bool {
 
 func canBeInput(t types.Type) bool {
 	switch t := t.(type) {
-	case *schema.InputObject, *schema.Scalar, *schema.Enum:
+	case *types.InputObject, *types.Scalar, *types.Enum:
 		return true
 	case *types.List:
 		return canBeInput(t.OfType)
@@ -893,7 +892,7 @@ func canBeInput(t types.Type) bool {
 
 func hasSubfields(t types.Type) bool {
 	switch t := t.(type) {
-	case *schema.Object, *schema.Interface, *schema.Union:
+	case *types.Object, *types.Interface, *types.Union:
 		return true
 	case *types.List:
 		return hasSubfields(t.OfType)
@@ -906,7 +905,7 @@ func hasSubfields(t types.Type) bool {
 
 func isLeaf(t types.Type) bool {
 	switch t.(type) {
-	case *schema.Scalar, *schema.Enum:
+	case *types.Scalar, *types.Enum:
 		return true
 	default:
 		return false

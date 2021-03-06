@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/graph-gophers/graphql-go/internal/common"
-	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/introspection"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -23,13 +22,13 @@ func newMeta(s *types.Schema) *Meta {
 	var err error
 	b := newBuilder(s)
 
-	metaSchema := s.Types["__Schema"].(*schema.Object)
+	metaSchema := s.Types["__Schema"].(*types.Object)
 	so, err := b.makeObjectExec(metaSchema.Name, metaSchema.Fields, nil, false, reflect.TypeOf(&introspection.Schema{}))
 	if err != nil {
 		panic(err)
 	}
 
-	metaType := s.Types["__Type"].(*schema.Object)
+	metaType := s.Types["__Type"].(*types.Object)
 	t, err := b.makeObjectExec(metaType.Name, metaType.Fields, nil, false, reflect.TypeOf(&introspection.Type{}))
 	if err != nil {
 		panic(err)
@@ -40,24 +39,24 @@ func newMeta(s *types.Schema) *Meta {
 	}
 
 	fieldTypename := Field{
-		Field: schema.Field{
-			Name: "__typename",
+		Field: types.Field{
+			Name: types.Ident{Name: "__typename"},
 			Type: &common.NonNull{OfType: s.Types["String"]},
 		},
 		TraceLabel: fmt.Sprintf("GraphQL field: __typename"),
 	}
 
 	fieldSchema := Field{
-		Field: schema.Field{
-			Name: "__schema",
+		Field: types.Field{
+			Name: types.Ident{Name: "__schema"},
 			Type: s.Types["__Schema"],
 		},
 		TraceLabel: fmt.Sprintf("GraphQL field: __schema"),
 	}
 
 	fieldType := Field{
-		Field: schema.Field{
-			Name: "__type",
+		Field: types.Field{
+			Name: types.Ident{Name: "__type"},
 			Type: s.Types["__Type"],
 		},
 		TraceLabel: fmt.Sprintf("GraphQL field: __type"),

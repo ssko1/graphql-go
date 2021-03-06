@@ -9,7 +9,6 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/exec/packer"
 	"github.com/graph-gophers/graphql-go/internal/exec/resolvable"
 	"github.com/graph-gophers/graphql-go/internal/query"
-	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/introspection"
 	"github.com/graph-gophers/graphql-go/types"
 )
@@ -175,7 +174,7 @@ func applySelectionSet(r *Request, s *resolvable.Schema, e *resolvable.Object, s
 func applyFragment(r *Request, s *resolvable.Schema, e *resolvable.Object, frag *types.Fragment) []Selection {
 	if frag.On.Name != e.Name {
 		t := r.Schema.Resolve(frag.On.Name)
-		face, ok := t.(*schema.Interface)
+		face, ok := t.(*types.Interface)
 		if !ok && frag.On.Name != "" {
 			a, ok := e.TypeAssertions[frag.On.Name]
 			if !ok {

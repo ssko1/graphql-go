@@ -14,7 +14,6 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/exec/resolvable"
 	"github.com/graph-gophers/graphql-go/internal/exec/selected"
 	"github.com/graph-gophers/graphql-go/internal/query"
-	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/log"
 	"github.com/graph-gophers/graphql-go/trace"
 	"github.com/graph-gophers/graphql-go/types"
@@ -171,7 +170,7 @@ func execFieldSelection(ctx context.Context, r *Request, s *resolvable.Schema, f
 	var result reflect.Value
 	var err *errors.QueryError
 
-	traceCtx, finish := r.Tracer.TraceField(ctx, f.field.TraceLabel, f.field.TypeName, f.field.Name, !f.field.Async, f.field.Args)
+	traceCtx, finish := r.Tracer.TraceField(ctx, f.field.TraceLabel, f.field.TypeName, f.field.Name.Name, !f.field.Async, f.field.Args)
 	defer func() {
 		finish(err)
 	}()
@@ -258,7 +257,7 @@ func (r *Request) execSelectionSet(ctx context.Context, sels []selected.Selectio
 	}
 
 	switch t.(type) {
-	case *schema.Object, *schema.Interface, *schema.Union:
+	case *types.Object, *types.Interface, *types.Union:
 		r.execSelections(ctx, sels, path, s, resolver, out, false)
 		return
 	}
@@ -273,7 +272,7 @@ func (r *Request) execSelectionSet(ctx context.Context, sels []selected.Selectio
 	case *common.List:
 		r.execList(ctx, sels, t, path, s, resolver, out)
 
-	case *schema.Scalar:
+	case *types.Scalar:
 		v := resolver.Interface()
 		data, err := json.Marshal(v)
 		if err != nil {
@@ -281,7 +280,7 @@ func (r *Request) execSelectionSet(ctx context.Context, sels []selected.Selectio
 		}
 		out.Write(data)
 
-	case *schema.Enum:
+	case *types.Enum:
 		var stringer fmt.Stringer = resolver
 		if s, ok := resolver.Interface().(fmt.Stringer); ok {
 			stringer = s

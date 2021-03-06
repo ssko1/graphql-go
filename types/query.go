@@ -10,7 +10,7 @@ type Document struct {
 type Operation struct {
 	Type       OperationType
 	Name       Ident
-	Vars       InputValueList
+	Vars       ArgumentsDefinition
 	Selections []Selection
 	Directives DirectiveList
 	Loc        errors.Location
