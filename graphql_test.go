@@ -170,14 +170,6 @@ func (r *discussPlanResolver) DismissVader(ctx context.Context) (string, error) 
 	return "", errors.New("I find your lack of faith disturbing")
 }
 
-func TestTest(t *testing.T) {
-	gqltesting.RunTest(t, &gqltesting.Test{
-		Schema:         graphql.MustParseSchema(`type Query { hello: String! }`, &helloWorldResolver1{}),
-		Query:          `query { hello }`,
-		ExpectedResult: `{"hello": "Hello world!"}`,
-	})
-}
-
 func TestHelloWorld(t *testing.T) {
 	t.Parallel()
 
